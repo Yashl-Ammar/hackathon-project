@@ -1,0 +1,139 @@
+state,specialty,facility_count,total_facilities_state,coverage_ratio,desert_severity,action
+Andhra Pradesh,oncology,0,3,0.0,95,CRITICAL: Andhra Pradesh has only 0 verified oncology facilities out of 3 total.
+Andhra Pradesh,dialysis,0,3,0.0,95,CRITICAL: Andhra Pradesh has only 0 verified dialysis facilities out of 3 total.
+Andhra Pradesh,neonatal_icu,0,3,0.0,95,CRITICAL: Andhra Pradesh has only 0 verified neonatal_icu facilities out of 3 total.
+Andhra Pradesh,emergency_trauma,0,3,0.0,95,CRITICAL: Andhra Pradesh has only 0 verified emergency_trauma facilities out of 3 total.
+Andhra Pradesh,mental_health,0,3,0.0,95,CRITICAL: Andhra Pradesh has only 0 verified mental_health facilities out of 3 total.
+Bihar,oncology,0,4,0.0,95,CRITICAL: Bihar has only 0 verified oncology facilities out of 4 total.
+Bihar,neonatal_icu,0,4,0.0,95,CRITICAL: Bihar has only 0 verified neonatal_icu facilities out of 4 total.
+Bihar,dialysis,0,4,0.0,95,CRITICAL: Bihar has only 0 verified dialysis facilities out of 4 total.
+Bihar,obstetrics,0,4,0.0,95,CRITICAL: Bihar has only 0 verified obstetrics facilities out of 4 total.
+Bihar,mental_health,0,4,0.0,95,CRITICAL: Bihar has only 0 verified mental_health facilities out of 4 total.
+West Bengal,neonatal_icu,0,3,0.0,95,CRITICAL: West Bengal has only 0 verified neonatal_icu facilities out of 3 total.
+Telangana,neonatal_icu,0,4,0.0,95,CRITICAL: Telangana has only 0 verified neonatal_icu facilities out of 4 total.
+Delhi,oncology,0,7,0.0,95,CRITICAL: Delhi has only 0 verified oncology facilities out of 7 total.
+Delhi,dialysis,0,7,0.0,95,CRITICAL: Delhi has only 0 verified dialysis facilities out of 7 total.
+Delhi,neonatal_icu,0,7,0.0,95,CRITICAL: Delhi has only 0 verified neonatal_icu facilities out of 7 total.
+Delhi,mental_health,0,7,0.0,95,CRITICAL: Delhi has only 0 verified mental_health facilities out of 7 total.
+Gujarat,neonatal_icu,0,10,0.0,95,CRITICAL: Gujarat has only 0 verified neonatal_icu facilities out of 10 total.
+Gujarat,dialysis,0,10,0.0,95,CRITICAL: Gujarat has only 0 verified dialysis facilities out of 10 total.
+Haryana,dialysis,0,6,0.0,95,CRITICAL: Haryana has only 0 verified dialysis facilities out of 6 total.
+Gujarat,mental_health,0,10,0.0,95,CRITICAL: Gujarat has only 0 verified mental_health facilities out of 10 total.
+Gujarat,obstetrics,0,10,0.0,95,CRITICAL: Gujarat has only 0 verified obstetrics facilities out of 10 total.
+Himachal Pradesh,neonatal_icu,0,1,0.0,95,CRITICAL: Himachal Pradesh has only 0 verified neonatal_icu facilities out of 1 total.
+Himachal Pradesh,oncology,0,1,0.0,95,CRITICAL: Himachal Pradesh has only 0 verified oncology facilities out of 1 total.
+Himachal Pradesh,dialysis,0,1,0.0,95,CRITICAL: Himachal Pradesh has only 0 verified dialysis facilities out of 1 total.
+Haryana,obstetrics,0,6,0.0,95,CRITICAL: Haryana has only 0 verified obstetrics facilities out of 6 total.
+Haryana,neonatal_icu,0,6,0.0,95,CRITICAL: Haryana has only 0 verified neonatal_icu facilities out of 6 total.
+Hooghly,neonatal_icu,0,1,0.0,95,CRITICAL: Hooghly has only 0 verified neonatal_icu facilities out of 1 total.
+Hooghly,emergency_trauma,0,1,0.0,95,CRITICAL: Hooghly has only 0 verified emergency_trauma facilities out of 1 total.
+Hooghly,oncology,0,1,0.0,95,CRITICAL: Hooghly has only 0 verified oncology facilities out of 1 total.
+Hooghly,dialysis,0,1,0.0,95,CRITICAL: Hooghly has only 0 verified dialysis facilities out of 1 total.
+Hooghly,mental_health,0,1,0.0,95,CRITICAL: Hooghly has only 0 verified mental_health facilities out of 1 total.
+Himachal Pradesh,emergency_trauma,0,1,0.0,95,CRITICAL: Himachal Pradesh has only 0 verified emergency_trauma facilities out of 1 total.
+Himachal Pradesh,obstetrics,0,1,0.0,95,CRITICAL: Himachal Pradesh has only 0 verified obstetrics facilities out of 1 total.
+Himachal Pradesh,mental_health,0,1,0.0,95,CRITICAL: Himachal Pradesh has only 0 verified mental_health facilities out of 1 total.
+Hooghly,obstetrics,0,1,0.0,95,CRITICAL: Hooghly has only 0 verified obstetrics facilities out of 1 total.
+Jharkhand,dialysis,0,3,0.0,95,CRITICAL: Jharkhand has only 0 verified dialysis facilities out of 3 total.
+Jammu & Kashmir,obstetrics,0,1,0.0,95,CRITICAL: Jammu & Kashmir has only 0 verified obstetrics facilities out of 1 total.
+Jharkhand,oncology,0,3,0.0,95,CRITICAL: Jharkhand has only 0 verified oncology facilities out of 3 total.
+Jammu & Kashmir,mental_health,0,1,0.0,95,CRITICAL: Jammu & Kashmir has only 0 verified mental_health facilities out of 1 total.
+Jammu & Kashmir,neonatal_icu,0,1,0.0,95,CRITICAL: Jammu & Kashmir has only 0 verified neonatal_icu facilities out of 1 total.
+Jammu & Kashmir,dialysis,0,1,0.0,95,CRITICAL: Jammu & Kashmir has only 0 verified dialysis facilities out of 1 total.
+Jammu & Kashmir,oncology,0,1,0.0,95,CRITICAL: Jammu & Kashmir has only 0 verified oncology facilities out of 1 total.
+Madhya Pradesh,oncology,0,2,0.0,95,CRITICAL: Madhya Pradesh has only 0 verified oncology facilities out of 2 total.
+Kochi,obstetrics,0,1,0.0,95,CRITICAL: Kochi has only 0 verified obstetrics facilities out of 1 total.
+Kerala,dialysis,0,5,0.0,95,CRITICAL: Kerala has only 0 verified dialysis facilities out of 5 total.
+Kerala,neonatal_icu,0,5,0.0,95,CRITICAL: Kerala has only 0 verified neonatal_icu facilities out of 5 total.
+Kochi,mental_health,0,1,0.0,95,CRITICAL: Kochi has only 0 verified mental_health facilities out of 1 total.
+Kochi,neonatal_icu,0,1,0.0,95,CRITICAL: Kochi has only 0 verified neonatal_icu facilities out of 1 total.
+Kochi,dialysis,0,1,0.0,95,CRITICAL: Kochi has only 0 verified dialysis facilities out of 1 total.
+Jharkhand,neonatal_icu,0,3,0.0,95,CRITICAL: Jharkhand has only 0 verified neonatal_icu facilities out of 3 total.
+Karnataka,neonatal_icu,0,3,0.0,95,CRITICAL: Karnataka has only 0 verified neonatal_icu facilities out of 3 total.
+Jharkhand,mental_health,0,3,0.0,95,CRITICAL: Jharkhand has only 0 verified mental_health facilities out of 3 total.
+Jharkhand,obstetrics,0,3,0.0,95,CRITICAL: Jharkhand has only 0 verified obstetrics facilities out of 3 total.
+Karnataka,oncology,0,3,0.0,95,CRITICAL: Karnataka has only 0 verified oncology facilities out of 3 total.
+Karnataka,emergency_trauma,0,3,0.0,95,CRITICAL: Karnataka has only 0 verified emergency_trauma facilities out of 3 total.
+Karnataka,dialysis,0,3,0.0,95,CRITICAL: Karnataka has only 0 verified dialysis facilities out of 3 total.
+Karnataka,obstetrics,0,3,0.0,95,CRITICAL: Karnataka has only 0 verified obstetrics facilities out of 3 total.
+Karnataka,mental_health,0,3,0.0,95,CRITICAL: Karnataka has only 0 verified mental_health facilities out of 3 total.
+Madhya Pradesh,dialysis,0,2,0.0,95,CRITICAL: Madhya Pradesh has only 0 verified dialysis facilities out of 2 total.
+Kochi,oncology,0,1,0.0,95,CRITICAL: Kochi has only 0 verified oncology facilities out of 1 total.
+Odisha,emergency_trauma,0,1,0.0,95,CRITICAL: Odisha has only 0 verified emergency_trauma facilities out of 1 total.
+Odisha,neonatal_icu,0,1,0.0,95,CRITICAL: Odisha has only 0 verified neonatal_icu facilities out of 1 total.
+Odisha,dialysis,0,1,0.0,95,CRITICAL: Odisha has only 0 verified dialysis facilities out of 1 total.
+Odisha,oncology,0,1,0.0,95,CRITICAL: Odisha has only 0 verified oncology facilities out of 1 total.
+Maharashtra,obstetrics,0,9,0.0,95,CRITICAL: Maharashtra has only 0 verified obstetrics facilities out of 9 total.
+Maharashtra,mental_health,0,9,0.0,95,CRITICAL: Maharashtra has only 0 verified mental_health facilities out of 9 total.
+Maharashtra,emergency_trauma,0,9,0.0,95,CRITICAL: Maharashtra has only 0 verified emergency_trauma facilities out of 9 total.
+Maharashtra,neonatal_icu,0,9,0.0,95,CRITICAL: Maharashtra has only 0 verified neonatal_icu facilities out of 9 total.
+Maharashtra,dialysis,0,9,0.0,95,CRITICAL: Maharashtra has only 0 verified dialysis facilities out of 9 total.
+Maharashtra,oncology,0,9,0.0,95,CRITICAL: Maharashtra has only 0 verified oncology facilities out of 9 total.
+Madhya Pradesh,obstetrics,0,2,0.0,95,CRITICAL: Madhya Pradesh has only 0 verified obstetrics facilities out of 2 total.
+Madhya Pradesh,mental_health,0,2,0.0,95,CRITICAL: Madhya Pradesh has only 0 verified mental_health facilities out of 2 total.
+Madhya Pradesh,emergency_trauma,0,2,0.0,95,CRITICAL: Madhya Pradesh has only 0 verified emergency_trauma facilities out of 2 total.
+Madhya Pradesh,neonatal_icu,0,2,0.0,95,CRITICAL: Madhya Pradesh has only 0 verified neonatal_icu facilities out of 2 total.
+Uttarakhand,mental_health,0,1,0.0,95,CRITICAL: Uttarakhand has only 0 verified mental_health facilities out of 1 total.
+West Bengal,emergency_trauma,0,3,0.0,95,CRITICAL: West Bengal has only 0 verified emergency_trauma facilities out of 3 total.
+Telangana,mental_health,0,4,0.0,95,CRITICAL: Telangana has only 0 verified mental_health facilities out of 4 total.
+Thane,mental_health,0,1,0.0,95,CRITICAL: Thane has only 0 verified mental_health facilities out of 1 total.
+Thane,emergency_trauma,0,1,0.0,95,CRITICAL: Thane has only 0 verified emergency_trauma facilities out of 1 total.
+Thane,neonatal_icu,0,1,0.0,95,CRITICAL: Thane has only 0 verified neonatal_icu facilities out of 1 total.
+Thane,dialysis,0,1,0.0,95,CRITICAL: Thane has only 0 verified dialysis facilities out of 1 total.
+Thane,oncology,0,1,0.0,95,CRITICAL: Thane has only 0 verified oncology facilities out of 1 total.
+Thane,obstetrics,0,1,0.0,95,CRITICAL: Thane has only 0 verified obstetrics facilities out of 1 total.
+Uttarakhand,obstetrics,0,1,0.0,95,CRITICAL: Uttarakhand has only 0 verified obstetrics facilities out of 1 total.
+West Bengal,oncology,0,3,0.0,95,CRITICAL: West Bengal has only 0 verified oncology facilities out of 3 total.
+Uttarakhand,emergency_trauma,0,1,0.0,95,CRITICAL: Uttarakhand has only 0 verified emergency_trauma facilities out of 1 total.
+Uttarakhand,oncology,0,1,0.0,95,CRITICAL: Uttarakhand has only 0 verified oncology facilities out of 1 total.
+Uttarakhand,dialysis,0,1,0.0,95,CRITICAL: Uttarakhand has only 0 verified dialysis facilities out of 1 total.
+Odisha,mental_health,0,1,0.0,95,CRITICAL: Odisha has only 0 verified mental_health facilities out of 1 total.
+Odisha,obstetrics,0,1,0.0,95,CRITICAL: Odisha has only 0 verified obstetrics facilities out of 1 total.
+Punjab,oncology,0,2,0.0,95,CRITICAL: Punjab has only 0 verified oncology facilities out of 2 total.
+Punjab,dialysis,0,2,0.0,95,CRITICAL: Punjab has only 0 verified dialysis facilities out of 2 total.
+Punjab,neonatal_icu,0,2,0.0,95,CRITICAL: Punjab has only 0 verified neonatal_icu facilities out of 2 total.
+Punjab,emergency_trauma,0,2,0.0,95,CRITICAL: Punjab has only 0 verified emergency_trauma facilities out of 2 total.
+Punjab,mental_health,0,2,0.0,95,CRITICAL: Punjab has only 0 verified mental_health facilities out of 2 total.
+Punjab,obstetrics,0,2,0.0,95,CRITICAL: Punjab has only 0 verified obstetrics facilities out of 2 total.
+Rajasthan,oncology,0,1,0.0,95,CRITICAL: Rajasthan has only 0 verified oncology facilities out of 1 total.
+Rajasthan,dialysis,0,1,0.0,95,CRITICAL: Rajasthan has only 0 verified dialysis facilities out of 1 total.
+Rajasthan,neonatal_icu,0,1,0.0,95,CRITICAL: Rajasthan has only 0 verified neonatal_icu facilities out of 1 total.
+Rajasthan,emergency_trauma,0,1,0.0,95,CRITICAL: Rajasthan has only 0 verified emergency_trauma facilities out of 1 total.
+Rajasthan,mental_health,0,1,0.0,95,CRITICAL: Rajasthan has only 0 verified mental_health facilities out of 1 total.
+Rajasthan,obstetrics,0,1,0.0,95,CRITICAL: Rajasthan has only 0 verified obstetrics facilities out of 1 total.
+Tamil Nadu,oncology,0,15,0.0,95,CRITICAL: Tamil Nadu has only 0 verified oncology facilities out of 15 total.
+Tamil Nadu,dialysis,0,15,0.0,95,CRITICAL: Tamil Nadu has only 0 verified dialysis facilities out of 15 total.
+Tamil Nadu,neonatal_icu,0,15,0.0,95,CRITICAL: Tamil Nadu has only 0 verified neonatal_icu facilities out of 15 total.
+Telangana,oncology,0,4,0.0,95,CRITICAL: Telangana has only 0 verified oncology facilities out of 4 total.
+Uttarakhand,neonatal_icu,0,1,0.0,95,CRITICAL: Uttarakhand has only 0 verified neonatal_icu facilities out of 1 total.
+Uttar Pradesh,neonatal_icu,0,16,0.0,95,CRITICAL: Uttar Pradesh has only 0 verified neonatal_icu facilities out of 16 total.
+West Bengal,mental_health,0,3,0.0,95,CRITICAL: West Bengal has only 0 verified mental_health facilities out of 3 total.
+West Bengal,dialysis,0,3,0.0,95,CRITICAL: West Bengal has only 0 verified dialysis facilities out of 3 total.
+Bihar,emergency_trauma,1,4,0.25,20,Bihar has only 1 verified emergency_trauma facilities out of 4 total.
+Andhra Pradesh,obstetrics,1,3,0.3333,20,Andhra Pradesh has only 1 verified obstetrics facilities out of 3 total.
+Kerala,oncology,1,5,0.2,20,Kerala has only 1 verified oncology facilities out of 5 total.
+Jharkhand,emergency_trauma,1,3,0.3333,20,Jharkhand has only 1 verified emergency_trauma facilities out of 3 total.
+Delhi,emergency_trauma,2,7,0.2857,20,Delhi has only 2 verified emergency_trauma facilities out of 7 total.
+Haryana,oncology,2,6,0.3333,20,Haryana has only 2 verified oncology facilities out of 6 total.
+Gujarat,oncology,1,10,0.1,20,Gujarat has only 1 verified oncology facilities out of 10 total.
+Delhi,obstetrics,2,7,0.2857,20,Delhi has only 2 verified obstetrics facilities out of 7 total.
+Haryana,emergency_trauma,2,6,0.3333,20,Haryana has only 2 verified emergency_trauma facilities out of 6 total.
+Gujarat,emergency_trauma,2,10,0.2,20,Gujarat has only 2 verified emergency_trauma facilities out of 10 total.
+Jammu & Kashmir,emergency_trauma,1,1,1.0,20,Jammu & Kashmir has only 1 verified emergency_trauma facilities out of 1 total.
+Haryana,mental_health,1,6,0.1667,20,Haryana has only 1 verified mental_health facilities out of 6 total.
+Kochi,emergency_trauma,1,1,1.0,20,Kochi has only 1 verified emergency_trauma facilities out of 1 total.
+Kerala,emergency_trauma,1,5,0.2,20,Kerala has only 1 verified emergency_trauma facilities out of 5 total.
+Kerala,mental_health,1,5,0.2,20,Kerala has only 1 verified mental_health facilities out of 5 total.
+Kerala,obstetrics,1,5,0.2,20,Kerala has only 1 verified obstetrics facilities out of 5 total.
+Tamil Nadu,emergency_trauma,4,15,0.2667,20,Tamil Nadu has only 4 verified emergency_trauma facilities out of 15 total.
+Telangana,dialysis,1,4,0.25,20,Telangana has only 1 verified dialysis facilities out of 4 total.
+Telangana,obstetrics,1,4,0.25,20,Telangana has only 1 verified obstetrics facilities out of 4 total.
+Tamil Nadu,obstetrics,1,15,0.0667,20,Tamil Nadu has only 1 verified obstetrics facilities out of 15 total.
+Uttar Pradesh,dialysis,2,16,0.125,20,Uttar Pradesh has only 2 verified dialysis facilities out of 16 total.
+Uttar Pradesh,oncology,1,16,0.0625,20,Uttar Pradesh has only 1 verified oncology facilities out of 16 total.
+Telangana,emergency_trauma,1,4,0.25,20,Telangana has only 1 verified emergency_trauma facilities out of 4 total.
+Tamil Nadu,mental_health,1,15,0.0667,20,Tamil Nadu has only 1 verified mental_health facilities out of 15 total.
+Uttar Pradesh,mental_health,1,16,0.0625,20,Uttar Pradesh has only 1 verified mental_health facilities out of 16 total.
+Uttar Pradesh,emergency_trauma,2,16,0.125,20,Uttar Pradesh has only 2 verified emergency_trauma facilities out of 16 total.
+Uttar Pradesh,obstetrics,3,16,0.1875,20,Uttar Pradesh has only 3 verified obstetrics facilities out of 16 total.
+West Bengal,obstetrics,1,3,0.3333,20,West Bengal has only 1 verified obstetrics facilities out of 3 total.

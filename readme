@@ -1,0 +1,17 @@
+---------trust score :
+Completeness (25pts) — how many key fields (description, equipment, etc.) are filled
+Consistency (30pts) — starts full, deducted if contradictions found (e.g. clinic claiming 50+ beds, surgery without anaesthesiologist)
+Verifiability (25pts) — how many specific equipment/procedures are mentioned
+Recency (10pts) — whether page update date exists
+Digital presence (10pts) — social media count
+--------------
+
+
+
+----env:
+python -m venv venv
+venv\Scripts\activate
+
+----to run:
+python data_extraction_pipeline.py
+start index.html

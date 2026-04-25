@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CareMap — Map Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --accent: #00d4aa;
+    --accent2: #0ea5e9;
+    --danger: #f97316;
+    --text: #f0f4ff;
+    --text2: #8b9ab8;
+    --text3: #4a5568;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 58px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,15,26,0.97);
+    backdrop-filter: blur(12px);
+    flex-shrink: 0;
+    z-index: 1000;
+    position: relative;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-dot {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(0.85)} }
+  .nav-pills { display: flex; gap: 4px; }
+  .nav-pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all .2s;
+    border: 1px solid transparent;
+    text-decoration: none;
+  }
+  .nav-pill:hover { color: var(--text); background: var(--surface2); }
+  .nav-pill.active { color: var(--accent); border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.08); }
+  .nav-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .status-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 3s infinite; }
+
+  /* MAIN */
+  .main { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+  /* LEFT PANEL */
+  .left-panel {
+    width: 280px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .lp-section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .lp-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; }
+
+  /* layer toggles */
+  .layer-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  .layer-toggle:hover { border-color: var(--border2); }
+  .layer-toggle.active { border-color: rgba(0,212,170,0.35); background: rgba(0,212,170,0.06); }
+  .lt-left { display: flex; align-items: center; gap: 9px; }
+  .lt-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .lt-name { font-size: 13px; font-weight: 500; }
+  .lt-count { font-size: 11px; color: var(--text2); }
+  .toggle-switch {
+    width: 32px; height: 18px;
+    background: var(--text3);
+    border-radius: 9px;
+    position: relative;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+  .toggle-switch.on { background: var(--accent); }
+  .toggle-switch::after {
+    content: '';
+    width: 12px; height: 12px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px; left: 3px;
+    transition: left .2s;
+  }
+  .toggle-switch.on::after { left: 17px; }
+
+  /* filter selects */
+  select, .filter-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color .2s;
+    margin-bottom: 8px;
+  }
+  select:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+
+  .trust-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+  /* desert list */
+  .desert-item {
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .desert-item:hover { border-color: var(--danger); }
+  .desert-item.critical { border-left: 3px solid var(--red); }
+  .desert-item.high { border-left: 3px solid var(--danger); }
+  .desert-item.medium { border-left: 3px solid var(--amber); }
+  .di-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .di-state { font-size: 13px; font-weight: 600; }
+  .di-severity {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600;
+  }
+  .di-severity.critical { background: rgba(239,68,68,0.15); color: var(--red); }
+  .di-severity.high { background: rgba(249,115,22,0.15); color: var(--danger); }
+  .di-severity.medium { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .di-specialty { font-size: 11px; color: var(--text2); }
+  .di-count { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* MAP */
+  #map {
+    flex: 1;
+    z-index: 1;
+  }
+
+  /* Leaflet dark override */
+  .leaflet-tile-pane { filter: brightness(0.55) saturate(0.4) hue-rotate(180deg); }
+  .leaflet-container { background: #0a0f1a; }
+
+  /* RIGHT PANEL */
+  .right-panel {
+    width: 300px;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .rp-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  .rp-section { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .rp-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin-bottom: 10px; font-weight: 600; }
+
+  /* stat grid */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat-lbl { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+  /* facility detail card */
+  #facilityDetail { display: none; }
+  .fd-name { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .fd-location { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+  .fd-trust-bar {
+    height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-bottom: 4px;
+  }
+  .fd-trust-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+  .fd-trust-label { font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+  .fd-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  .fd-tag {
+    padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2); color: var(--accent);
+  }
+  .fd-tag.warn { background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.2); color: var(--danger); }
+  .fd-citation {
+    font-size: 12px; color: var(--text2);
+    background: rgba(255,255,255,0.03);
+    border-left: 2px solid var(--accent);
+    padding: 7px 10px;
+    border-radius: 0 6px 6px 0;
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  /* legend */
+  .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; color: var(--text2); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-rect { width: 14px; height: 10px; border-radius: 3px; flex-shrink: 0; opacity: 0.8; }
+
+  /* map overlay controls */
+  .map-controls {
+    position: absolute;
+    top: 16px; right: 316px;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .map-ctrl-btn {
+    background: rgba(17,24,39,0.92);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .map-ctrl-btn:hover { color: var(--accent); border-color: rgba(0,212,170,0.4); }
+  .map-ctrl-btn.active { color: var(--accent); border-color: rgba(0,212,170,0.4); background: rgba(0,212,170,0.08); }
+
+  /* custom leaflet popup */
+  .leaflet-popup-content-wrapper {
+    background: var(--surface) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+    color: var(--text) !important;
+  }
+  .leaflet-popup-tip { background: var(--surface) !important; }
+  .leaflet-popup-content { margin: 12px 14px !important; font-family: 'DM Sans', sans-serif !important; font-size: 13px !important; }
+  .popup-name { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .popup-loc { color: var(--text2); font-size: 12px; margin-bottom: 7px; }
+  .popup-trust { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .popup-trust-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .popup-trust-fill { height: 100%; border-radius: 2px; }
+  .popup-trust-val { font-size: 12px; font-weight: 600; }
+  .popup-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .popup-tag { padding: 1px 7px; border-radius: 10px; font-size: 10px; background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2); color: var(--accent); }
+  .popup-tag.warn { background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.2); color: var(--danger); }
+
+  /* heatmap legend */
+  .heat-legend {
+    position: absolute;
+    bottom: 30px; left: 296px;
+    z-index: 500;
+    background: rgba(17,24,39,0.92);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    backdrop-filter: blur(8px);
+  }
+  .heat-gradient {
+    height: 8px;
+    width: 140px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #22c55e, #f59e0b, #ef4444);
+    margin: 6px 0 4px;
+  }
+  .heat-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text2); }
+
+  /* scrollbar */
+  .left-panel::-webkit-scrollbar, .right-panel::-webkit-scrollbar { width: 3px; }
+  .left-panel::-webkit-scrollbar-thumb, .right-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    CareMap
+    <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:4px">Intelligence</span>
+  </div>
+  <div class="nav-pills">
+    <a class="nav-pill" href="#">Query</a>
+    <a class="nav-pill active" href="#">Map</a>
+    <a class="nav-pill" href="#">Deserts</a>
+    <a class="nav-pill" href="#">Explorer</a>
+  </div>
+  <div class="nav-badge">
+    <div class="status-dot"></div>
+    10,000 facilities indexed
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- Map Layers -->
+    <div class="lp-section">
+      <div class="lp-label">Map Layers</div>
+      <div class="layer-toggle active" id="lt-facilities" onclick="toggleLayer('facilities')">
+        <div class="lt-left">
+          <div class="lt-dot" style="background:var(--accent)"></div>
+          <div>
+            <div class="lt-name">Facilities</div>
+            <div class="lt-count">10,000 markers</div>
+          </div>
+        </div>
+        <div class="toggle-switch on" id="sw-facilities"></div>
+      </div>
+      <div class="layer-toggle active" id="lt-deserts" onclick="toggleLayer('deserts')">
+        <div class="lt-left">
+          <div class="lt-dot" style="background:var(--red)"></div>
+          <div>
+            <div class="lt-name">Medical Deserts</div>
+            <div class="lt-count">Critical gaps</div>
+          </div>
+        </div>
+        <div class="toggle-switch on" id="sw-deserts"></div>
+      </div>
+      <div class="layer-toggle" id="lt-heatmap" onclick="toggleLayer('heatmap')">
+        <div class="lt-left">
+          <div class="lt-dot" style="background:var(--amber)"></div>
+          <div>
+            <div class="lt-name">Trust Heatmap</div>
+            <div class="lt-count">Score density</div>
+          </div>
+        </div>
+        <div class="toggle-switch" id="sw-heatmap"></div>
+      </div>
+      <div class="layer-toggle" id="lt-clusters" onclick="toggleLayer('clusters')">
+        <div class="lt-left">
+          <div class="lt-dot" style="background:var(--accent2)"></div>
+          <div>
+            <div class="lt-name">State Clusters</div>
+            <div class="lt-count">Aggregated view</div>
+          </div>
+        </div>
+        <div class="toggle-switch" id="sw-clusters"></div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="lp-section">
+      <div class="lp-label">Filters</div>
+      <select id="stateFilter" onchange="applyFilters()">
+        <option value="">All States</option>
+        <option>Uttar Pradesh</option><option>Maharashtra</option>
+        <option>Bihar</option><option>West Bengal</option>
+        <option>Rajasthan</option><option>Madhya Pradesh</option>
+        <option>Tamil Nadu</option><option>Karnataka</option>
+        <option>Gujarat</option><option>Kerala</option>
+        <option>Telangana</option><option>Andhra Pradesh</option>
+        <option>Delhi</option><option>Punjab</option><option>Odisha</option>
+      </select>
+      <select id="specialtyFilter" onchange="applyFilters()">
+        <option value="">All Specialties</option>
+        <option>Emergency Trauma</option><option>Oncology</option>
+        <option>Dialysis / Nephrology</option><option>Neonatal ICU</option>
+        <option>Cardiology</option><option>Mental Health</option>
+        <option>Obstetrics</option>
+      </select>
+      <div class="trust-row">
+        <span>Min Trust Score</span>
+        <span id="trustVal" style="color:var(--accent);font-weight:600">0</span>
+      </div>
+      <input type="range" min="0" max="100" value="0" id="trustSlider"
+        oninput="document.getElementById('trustVal').textContent=this.value;applyFilters()">
+    </div>
+
+    <!-- Critical Deserts -->
+    <div class="lp-section">
+      <div class="lp-label">Critical Deserts</div>
+      <div id="desertList"></div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- MAP CONTROLS overlay -->
+  <div class="map-controls">
+    <div class="map-ctrl-btn active" onclick="setView('india')" id="btn-india">🇮🇳 All India</div>
+    <div class="map-ctrl-btn" onclick="setView('north')" id="btn-north">⬆ North</div>
+    <div class="map-ctrl-btn" onclick="setView('south')" id="btn-south">⬇ South</div>
+    <div class="map-ctrl-btn" onclick="setView('east')" id="btn-east">➡ East</div>
+    <div class="map-ctrl-btn" onclick="setView('west')" id="btn-west">⬅ West</div>
+  </div>
+
+  <!-- HEAT LEGEND -->
+  <div class="heat-legend" id="heatLegend" style="display:none">
+    <div style="font-size:11px;color:var(--text2);font-weight:600">DESERT SEVERITY</div>
+    <div class="heat-gradient"></div>
+    <div class="heat-labels"><span>Well served</span><span>Critical</span></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-header">Map Intelligence</div>
+
+    <!-- Stats -->
+    <div class="rp-section">
+      <div class="rp-label">Overview</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val" id="visibleCount">10K</div><div class="stat-lbl">Visible</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--red)" id="desertCount">18</div><div class="stat-lbl">Deserts</div></div>
+        <div class="stat-card"><div class="stat-val" id="avgTrust">42</div><div class="stat-lbl">Avg Trust</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--green)" id="highTrust">2.1K</div><div class="stat-lbl">High Trust</div></div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="rp-section">
+      <div class="rp-label">Legend</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--green)"></div>High Trust (≥70)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--amber)"></div>Medium Trust (40–69)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--red)"></div>Low Trust (&lt;40)</div>
+      <div style="height:8px"></div>
+      <div class="legend-row"><div class="legend-rect" style="background:rgba(239,68,68,0.4);border:1px solid var(--red)"></div>Critical Desert Zone</div>
+      <div class="legend-row"><div class="legend-rect" style="background:rgba(249,115,22,0.3);border:1px solid var(--danger)"></div>High Risk Zone</div>
+      <div class="legend-row"><div class="legend-rect" style="background:rgba(245,158,11,0.2);border:1px solid var(--amber)"></div>Medium Risk Zone</div>
+    </div>
+
+    <!-- Facility Detail -->
+    <div class="rp-section" id="facilityDetail">
+      <div class="rp-label">Selected Facility</div>
+      <div class="fd-name" id="fdName">—</div>
+      <div class="fd-location" id="fdLocation">—</div>
+      <div class="fd-trust-bar"><div class="fd-trust-fill" id="fdTrustBar" style="width:0%"></div></div>
+      <div class="fd-trust-label" id="fdTrustLabel">Trust Score: —</div>
+      <div class="fd-tags" id="fdTags"></div>
+      <div class="fd-citation" id="fdCitation">—</div>
+    </div>
+
+    <!-- State Breakdown -->
+    <div class="rp-section">
+      <div class="rp-label">State Breakdown</div>
+      <div id="stateBreakdown"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── SYNTHETIC DATA (representative of 10k dataset) ───
+const STATES_DATA = [
+  { state: "Uttar Pradesh",  lat: 26.8, lng: 80.9,  facilities: 1842, avgTrust: 38, deserts: ["oncology","mental_health"], severity: "critical" },
+  { state: "Maharashtra",    lat: 19.7, lng: 75.7,  facilities: 1205, avgTrust: 61, deserts: ["dialysis"], severity: "medium" },
+  { state: "Bihar",          lat: 25.9, lng: 85.1,  facilities: 923,  avgTrust: 29, deserts: ["oncology","dialysis","neonatal_icu"], severity: "critical" },
+  { state: "West Bengal",    lat: 22.9, lng: 87.8,  facilities: 812,  avgTrust: 47, deserts: ["emergency_trauma"], severity: "high" },
+  { state: "Rajasthan",      lat: 27.0, lng: 74.2,  facilities: 734,  avgTrust: 35, deserts: ["dialysis","oncology"], severity: "critical" },
+  { state: "Madhya Pradesh", lat: 23.5, lng: 77.5,  facilities: 698,  avgTrust: 33, deserts: ["oncology","mental_health","neonatal_icu"], severity: "critical" },
+  { state: "Tamil Nadu",     lat: 11.1, lng: 78.7,  facilities: 876,  avgTrust: 68, deserts: [], severity: "low" },
+  { state: "Karnataka",      lat: 15.3, lng: 75.7,  facilities: 748,  avgTrust: 63, deserts: ["mental_health"], severity: "medium" },
+  { state: "Gujarat",        lat: 22.3, lng: 72.6,  facilities: 612,  avgTrust: 55, deserts: ["dialysis"], severity: "medium" },
+  { state: "Kerala",         lat: 10.5, lng: 76.2,  facilities: 584,  avgTrust: 72, deserts: [], severity: "low" },
+  { state: "Telangana",      lat: 17.4, lng: 79.1,  facilities: 423,  avgTrust: 58, deserts: ["mental_health"], severity: "medium" },
+  { state: "Andhra Pradesh", lat: 15.9, lng: 80.0,  facilities: 512,  avgTrust: 52, deserts: ["neonatal_icu"], severity: "medium" },
+  { state: "Delhi",          lat: 28.6, lng: 77.2,  facilities: 387,  avgTrust: 74, deserts: [], severity: "low" },
+  { state: "Punjab",         lat: 31.1, lng: 75.3,  facilities: 298,  avgTrust: 59, deserts: ["oncology"], severity: "high" },
+  { state: "Odisha",         lat: 20.9, lng: 84.2,  facilities: 412,  avgTrust: 31, deserts: ["oncology","dialysis","emergency_trauma"], severity: "critical" },
+];
+
+const SAMPLE_FACILITIES = [
+  { name: "AIIMS Patna", lat: 25.614, lng: 85.143, state: "Bihar", type: "Hospital", trust: 78, specialties: ["Emergency","Surgery","ICU"], citation: "24-hour emergency department with 12 ICU beds and dedicated trauma bay operational.", hasIcu: true, hasEmergency: true },
+  { name: "Narayana Health Bengaluru", lat: 12.923, lng: 77.600, state: "Karnataka", type: "Hospital", trust: 85, specialties: ["Cardiology","Oncology","Neurology"], citation: "Advanced cardiac catheterisation lab with 200+ annual open-heart surgeries.", hasIcu: true, hasEmergency: true },
+  { name: "PGIMS Rohtak", lat: 28.898, lng: 76.596, state: "Haryana", type: "Hospital", trust: 65, specialties: ["Emergency","Obstetrics","Dialysis"], citation: "State referral centre with 8 dialysis stations and neonatal ICU of 15 beds.", hasIcu: true, hasEmergency: true },
+  { name: "Darbhanga Medical", lat: 26.152, lng: 85.900, state: "Bihar", type: "Hospital", trust: 28, specialties: ["General Medicine"], citation: "Basic outpatient services; equipment list mentions ventilator but no supporting staff data.", hasIcu: false, hasEmergency: false },
+  { name: "KEM Hospital Mumbai", lat: 18.998, lng: 72.840, state: "Maharashtra", type: "Hospital", trust: 81, specialties: ["Trauma","Oncology","Dialysis"], citation: "Fully operational trauma centre Level-I with 24/7 blood bank and burn unit.", hasIcu: true, hasEmergency: true },
+  { name: "Varanasi City Clinic", lat: 25.317, lng: 82.970, state: "Uttar Pradesh", type: "Clinic", trust: 22, specialties: ["General Medicine"], citation: "Outpatient only. Closes at 8pm. Claims surgical capability but no anaesthesiologist listed.", hasIcu: false, hasEmergency: false },
+  { name: "JIPMER Puducherry", lat: 11.936, lng: 79.842, state: "Tamil Nadu", type: "Hospital", trust: 88, specialties: ["Oncology","Neurology","Emergency"], citation: "Premier institute with 150-bed oncology block and Level-I trauma centre.", hasIcu: true, hasEmergency: true },
+  { name: "MGM Jamshedpur", lat: 22.806, lng: 86.203, state: "Jharkhand", type: "Hospital", trust: 54, specialties: ["Cardiology","Dialysis"], citation: "4 dialysis units operational; cardiac OPD 6 days/week.", hasIcu: false, hasEmergency: false },
+  { name: "Medanta Gurgaon", lat: 28.448, lng: 77.073, state: "Delhi", type: "Hospital", trust: 91, specialties: ["Cardiology","Oncology","Neuro"], citation: "Multi-specialty tertiary care with 45-bed ICU and robotic surgery suite.", hasIcu: true, hasEmergency: true },
+  { name: "Rural PHC Barmer", lat: 25.745, lng: 71.410, state: "Rajasthan", type: "Clinic", trust: 18, specialties: [], citation: "Primary health centre. No equipment data available. Single doctor reported.", hasIcu: false, hasEmergency: false },
+  { name: "NIMHANS Bengaluru", lat: 12.943, lng: 77.596, state: "Karnataka", type: "Hospital", trust: 86, specialties: ["Mental Health","Neurology"], citation: "National institute for mental health. 500+ bed psychiatric facility with research centre.", hasIcu: false, hasEmergency: false },
+  { name: "RIMS Imphal", lat: 24.817, lng: 93.939, state: "Manipur", type: "Hospital", trust: 45, specialties: ["Emergency","General Surgery"], citation: "Regional referral with casualty unit. Equipment partially listed; ICU under renovation.", hasIcu: false, hasEmergency: true },
+  { name: "Tata Memorial Mumbai", lat: 18.998, lng: 72.847, state: "Maharashtra", type: "Hospital", trust: 93, specialties: ["Oncology"], citation: "Apex cancer institute; 600 beds dedicated oncology with chemotherapy and radiotherapy.", hasIcu: true, hasEmergency: false },
+  { name: "NRS Medical Kolkata", lat: 22.570, lng: 88.380, state: "West Bengal", type: "Hospital", trust: 61, specialties: ["Emergency","Obstetrics","General Surgery"], citation: "24-hour casualty with 8 emergency bays. Obstetrics and neonatal unit functional.", hasIcu: true, hasEmergency: true },
+  { name: "Lakeshore Kochi", lat: 9.931, lng: 76.267, state: "Kerala", type: "Hospital", trust: 79, specialties: ["Cardiology","Dialysis","Oncology"], citation: "NABH-accredited facility with 6 dialysis units and 24/7 cardiac emergency.", hasIcu: true, hasEmergency: true },
+  { name: "Bhopal Memorial", lat: 23.259, lng: 77.412, state: "Madhya Pradesh", type: "Hospital", trust: 42, specialties: ["Emergency","General Medicine"], citation: "Casualty operational. Oncology OPD mentioned but no dedicated unit confirmed.", hasIcu: false, hasEmergency: true },
+  { name: "SGT Hospital Gurugram", lat: 28.398, lng: 76.997, state: "Delhi", type: "Hospital", trust: 67, specialties: ["Obstetrics","Neonatal ICU","Surgery"], citation: "16-bed NICU with level-3 care. Maternal ICU available for high-risk deliveries.", hasIcu: true, hasEmergency: false },
+  { name: "Sukrala PHC Bihar Sharif", lat: 25.198, lng: 85.524, state: "Bihar", type: "Clinic", trust: 14, specialties: [], citation: "No description available. Only name and coordinates on record.", hasIcu: false, hasEmergency: false },
+  { name: "SRMS Bareilly", lat: 28.364, lng: 79.432, state: "Uttar Pradesh", type: "Hospital", trust: 49, specialties: ["Surgery","Dialysis"], citation: "3 dialysis units; surgical block with general and orthopaedic OTs.", hasIcu: false, hasEmergency: false },
+  { name: "Apollo Chennai", lat: 13.062, lng: 80.215, state: "Tamil Nadu", type: "Hospital", trust: 89, specialties: ["Oncology","Cardiology","Neuro","Emergency"], citation: "JCI-accredited hospital; proton therapy unit and 80-bed ICU with 24/7 intensivists.", hasIcu: true, hasEmergency: true },
+];
+
+const DESERT_DATA = [
+  { state: "Bihar", specialty: "Oncology", severity: "critical", count: 2, total: 923, lat: 25.9, lng: 85.1 },
+  { state: "Bihar", specialty: "Dialysis", severity: "critical", count: 4, total: 923, lat: 25.7, lng: 84.8 },
+  { state: "Uttar Pradesh", specialty: "Mental Health", severity: "critical", count: 3, total: 1842, lat: 27.1, lng: 81.5 },
+  { state: "Rajasthan", specialty: "Dialysis", severity: "critical", count: 5, total: 734, lat: 27.4, lng: 74.9 },
+  { state: "Odisha", specialty: "Oncology", severity: "critical", count: 1, total: 412, lat: 20.5, lng: 84.8 },
+  { state: "Madhya Pradesh", specialty: "Neonatal ICU", severity: "critical", count: 2, total: 698, lat: 23.2, lng: 77.9 },
+  { state: "West Bengal", specialty: "Emergency Trauma", severity: "high", count: 8, total: 812, lat: 23.2, lng: 87.5 },
+  { state: "Punjab", specialty: "Oncology", severity: "high", count: 6, total: 298, lat: 30.9, lng: 75.8 },
+  { state: "Madhya Pradesh", specialty: "Mental Health", severity: "critical", count: 1, total: 698, lat: 24.0, lng: 78.0 },
+  { state: "Odisha", specialty: "Emergency Trauma", severity: "critical", count: 3, total: 412, lat: 21.5, lng: 83.5 },
+];
+
+// ─── INIT MAP ───
+const map = L.map('map', {
+  center: [22.5, 82.0],
+  zoom: 5,
+  zoomControl: false,
+  attributionControl: false,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// ─── LAYER GROUPS ───
+const facilityLayer = L.layerGroup().addTo(map);
+const desertLayer   = L.layerGroup().addTo(map);
+const clusterLayer  = L.layerGroup();
+const heatLayer     = L.layerGroup();
+
+const layers = { facilities: true, deserts: true, heatmap: false, clusters: false };
+
+// ─── DRAW FACILITIES ───
+function getTrustColor(trust) {
+  if (trust >= 70) return '#22c55e';
+  if (trust >= 40) return '#f59e0b';
+  return '#ef4444';
+}
+
+function makeMarkerIcon(trust) {
+  const color = getTrustColor(trust);
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:10px;height:10px;border-radius:50%;
+      background:${color};
+      border:2px solid rgba(255,255,255,0.3);
+      box-shadow:0 0 6px ${color}88;
+    "></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+  });
+}
+
+function drawFacilities(facilities) {
+  facilityLayer.clearLayers();
+  facilities.forEach(f => {
+    const color = getTrustColor(f.trust);
+    const m = L.marker([f.lat, f.lng], { icon: makeMarkerIcon(f.trust) });
+    const tags = f.specialties.map(s => `<span class="popup-tag">${s}</span>`).join('');
+    const warnings = [];
+    if (!f.hasIcu && f.specialties.includes('ICU')) warnings.push('Claims ICU no evidence');
+    const warnTags = warnings.map(w => `<span class="popup-tag warn">⚠ ${w}</span>`).join('');
+
+    m.bindPopup(`
+      <div class="popup-name">${f.name}</div>
+      <div class="popup-loc">📍 ${f.state} · ${f.type}</div>
+      <div class="popup-trust">
+        <div class="popup-trust-bar"><div class="popup-trust-fill" style="width:${f.trust}%;background:${color}"></div></div>
+        <div class="popup-trust-val" style="color:${color}">${f.trust}</div>
+      </div>
+      <div class="popup-tags">${tags}${warnTags}</div>
+      <div style="font-size:11px;color:#8b9ab8;font-style:italic;margin-top:8px;line-height:1.4;border-left:2px solid ${color};padding-left:8px">${f.citation.substring(0,100)}…</div>
+    `, { maxWidth: 260 });
+
+    m.on('click', () => showFacilityDetail(f));
+    facilityLayer.addLayer(m);
+  });
+}
+
+// ─── DRAW DESERTS ───
+function drawDeserts() {
+  desertLayer.clearLayers();
+  DESERT_DATA.forEach(d => {
+    const radius = d.severity === 'critical' ? 120000 : d.severity === 'high' ? 80000 : 50000;
+    const color  = d.severity === 'critical' ? '#ef4444' : d.severity === 'high' ? '#f97316' : '#f59e0b';
+    const circle = L.circle([d.lat, d.lng], {
+      radius,
+      color,
+      fillColor: color,
+      fillOpacity: 0.12,
+      weight: 1.5,
+      dashArray: '4 4',
+    });
+    circle.bindPopup(`
+      <div class="popup-name" style="color:${color}">⚠ ${d.specialty} Desert</div>
+      <div class="popup-loc">${d.state}</div>
+      <div style="font-size:12px;color:#8b9ab8;margin-top:6px">
+        Only <strong style="color:${color}">${d.count}</strong> verified facilities<br>
+        out of ${d.total.toLocaleString()} total in state.
+      </div>
+    `);
+    desertLayer.addLayer(circle);
+  });
+}
+
+// ─── DRAW STATE CLUSTERS ───
+function drawClusters() {
+  clusterLayer.clearLayers();
+  STATES_DATA.forEach(s => {
+    const color = s.severity === 'critical' ? '#ef4444' : s.severity === 'high' ? '#f97316' : s.severity === 'medium' ? '#f59e0b' : '#22c55e';
+    const size = Math.max(24, Math.min(54, s.facilities / 40));
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${size}px;height:${size}px;border-radius:50%;
+        background:${color}22;
+        border:2px solid ${color}88;
+        display:flex;align-items:center;justify-content:center;
+        font-size:11px;font-weight:700;color:${color};
+        font-family:'Syne',sans-serif;
+      ">${s.facilities > 999 ? Math.round(s.facilities/1000)+'K' : s.facilities}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2],
+    });
+    const m = L.marker([s.lat, s.lng], { icon });
+    m.bindPopup(`
+      <div class="popup-name">${s.state}</div>
+      <div class="popup-trust">
+        <div class="popup-trust-bar"><div class="popup-trust-fill" style="width:${s.avgTrust}%;background:${getTrustColor(s.avgTrust)}"></div></div>
+        <div class="popup-trust-val" style="color:${getTrustColor(s.avgTrust)}">${s.avgTrust}</div>
+      </div>
+      <div style="font-size:12px;color:#8b9ab8">${s.facilities.toLocaleString()} facilities · ${s.deserts.length} desert types</div>
+    `);
+    clusterLayer.addLayer(m);
+  });
+}
+
+// ─── SHOW FACILITY DETAIL ───
+function showFacilityDetail(f) {
+  const panel = document.getElementById('facilityDetail');
+  panel.style.display = 'block';
+  document.getElementById('fdName').textContent = f.name;
+  document.getElementById('fdLocation').textContent = `📍 ${f.state} · ${f.type}`;
+  const color = getTrustColor(f.trust);
+  document.getElementById('fdTrustBar').style.width = f.trust + '%';
+  document.getElementById('fdTrustBar').style.background = color;
+  document.getElementById('fdTrustLabel').textContent = `Trust Score: ${f.trust}/100`;
+  document.getElementById('fdTrustLabel').style.color = color;
+  const tagsHtml = f.specialties.map(s => `<span class="fd-tag">${s}</span>`).join('');
+  const warnHtml = (!f.hasIcu && f.specialties.length === 0) ? '<span class="fd-tag warn">⚠ No data</span>' : '';
+  document.getElementById('fdTags').innerHTML = tagsHtml + warnHtml;
+  document.getElementById('fdCitation').textContent = `"${f.citation}"`;
+}
+
+// ─── DESERT LIST ───
+function renderDesertList() {
+  const list = document.getElementById('desertList');
+  const top = DESERT_DATA.slice(0, 6);
+  list.innerHTML = top.map(d => `
+    <div class="desert-item ${d.severity}" onclick="map.flyTo([${d.lat},${d.lng}], 7)">
+      <div class="di-header">
+        <div class="di-state">${d.state}</div>
+        <div class="di-severity ${d.severity}">${d.severity.toUpperCase()}</div>
+      </div>
+      <div class="di-specialty">${d.specialty}</div>
+      <div class="di-count">${d.count} facility${d.count!==1?'ies':'y'} / ${d.total.toLocaleString()} total</div>
+    </div>
+  `).join('');
+}
+
+// ─── STATE BREAKDOWN ───
+function renderStateBreakdown() {
+  const el = document.getElementById('stateBreakdown');
+  const sorted = [...STATES_DATA].sort((a,b) => a.avgTrust - b.avgTrust).slice(0, 8);
+  el.innerHTML = sorted.map(s => {
+    const color = getTrustColor(s.avgTrust);
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:var(--text2)">${s.state}</span>
+        <span style="color:${color};font-weight:600">${s.avgTrust}</span>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden">
+        <div style="width:${s.avgTrust}%;height:100%;background:${color};border-radius:2px;transition:width .5s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── LAYER TOGGLE ───
+function toggleLayer(name) {
+  layers[name] = !layers[name];
+  const sw = document.getElementById('sw-' + name);
+  const lt = document.getElementById('lt-' + name);
+  sw.classList.toggle('on', layers[name]);
+  lt.classList.toggle('active', layers[name]);
+
+  if (name === 'facilities') {
+    if (layers[name]) map.addLayer(facilityLayer); else map.removeLayer(facilityLayer);
+  } else if (name === 'deserts') {
+    if (layers[name]) map.addLayer(desertLayer); else map.removeLayer(desertLayer);
+    document.getElementById('heatLegend').style.display = layers[name] ? 'block' : 'none';
+  } else if (name === 'clusters') {
+    if (layers[name]) { drawClusters(); map.addLayer(clusterLayer); } else map.removeLayer(clusterLayer);
+  } else if (name === 'heatmap') {
+    // simple visual indicator only
+    if (layers[name]) {
+      document.getElementById('heatLegend').style.display = 'block';
+    }
+  }
+}
+
+// ─── VIEW PRESETS ───
+const views = {
+  india: [22.5, 82.0, 5],
+  north: [30.0, 77.0, 6],
+  south: [12.0, 78.0, 6],
+  east:  [23.0, 87.0, 6],
+  west:  [22.5, 72.5, 6],
+};
+function setView(name) {
+  const [lat, lng, zoom] = views[name];
+  map.flyTo([lat, lng], zoom, { duration: 1.2 });
+  document.querySelectorAll('.map-ctrl-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + name).classList.add('active');
+}
+
+// ─── FILTERS ───
+function applyFilters() {
+  const state     = document.getElementById('stateFilter').value;
+  const specialty = document.getElementById('specialtyFilter').value;
+  const minTrust  = parseInt(document.getElementById('trustSlider').value);
+
+  let filtered = SAMPLE_FACILITIES.filter(f => {
+    if (state && f.state !== state) return false;
+    if (specialty) {
+      const kw = specialty.toLowerCase();
+      if (!f.specialties.some(s => s.toLowerCase().includes(kw.split(' ')[0]))) return false;
+    }
+    if (f.trust < minTrust) return false;
+    return true;
+  });
+
+  drawFacilities(filtered);
+  document.getElementById('visibleCount').textContent = filtered.length;
+  const avg = filtered.length ? Math.round(filtered.reduce((s,f) => s+f.trust, 0) / filtered.length) : 0;
+  document.getElementById('avgTrust').textContent = avg;
+  document.getElementById('highTrust').textContent = filtered.filter(f => f.trust >= 70).length;
+}
+
+// ─── INIT ───
+drawFacilities(SAMPLE_FACILITIES);
+drawDeserts();
+renderDesertList();
+renderStateBreakdown();
+document.getElementById('heatLegend').style.display = 'block';
+</script>
+</body>
+</html>

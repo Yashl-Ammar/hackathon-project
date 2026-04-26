@@ -28,8 +28,8 @@ LLM_ENDPOINT = "databricks-meta-llama-3-3-70b-instruct"
 spark_error = None
 try:
     from databricks.connect import DatabricksSession
-    spark = DatabricksSession.builder.getOrCreate()
-    print("Spark session created via DatabricksSession")
+    spark = DatabricksSession.builder.serverless(True).getOrCreate()
+    print("Spark session created via DatabricksSession (serverless)")
 except Exception as e:
     spark_error = str(e)
     print(f"Spark error: {spark_error}")

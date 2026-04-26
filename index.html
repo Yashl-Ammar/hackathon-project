@@ -821,7 +821,7 @@ async function showFacilityDetail(name) {
     const f = await res.json();
 
     // Trust score colour
-    const tc = f.trust_score >= 80 ? 'var(--green)' : f.trust_score >= 60 ? 'var(--yellow)' : 'var(--red)';
+    const tc = f.trust_score >= 80 ? 'var(--green)' : f.trust_score >= 60 ? 'var(--amber)' : 'var(--red)';
 
     // Trust breakdown bars
     let breakdownHtml = '';
@@ -829,15 +829,15 @@ async function showFacilityDetail(name) {
       breakdownHtml = '<div style="margin-top:10px">';
       for (const [dim, val] of Object.entries(f.trust_breakdown)) {
         const pct = val > 1 ? Math.round(val) : Math.round(val * 100);
-        const barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
+        const barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
         breakdownHtml += `
           <div style="margin-bottom:5px;font-size:12px">
             <div style="display:flex;justify-content:space-between;margin-bottom:2px">
               <span style="color:var(--text2);text-transform:capitalize">${dim.replace(/_/g,' ')}</span>
               <span style="color:${barColor};font-weight:600">${pct}%</span>
             </div>
-            <div style="background:var(--surface3);border-radius:3px;height:4px">
-              <div style="background:${barColor};width:${pct}%;height:4px;border-radius:3px"></div>
+            <div style="background:var(--surface2);border-radius:3px;height:4px">
+              <div style="background:${barColor};width:${pct}%;height:4px;border-radius:3px;min-width:${pct>0?'2px':'0'}"></div>
             </div>
           </div>`;
       }

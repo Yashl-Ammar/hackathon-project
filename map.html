@@ -496,61 +496,42 @@
 
 <script>
 // ─── SYNTHETIC DATA (representative of 10k dataset) ───
-const STATES_DATA = [
-  { state: "Uttar Pradesh",  lat: 26.8, lng: 80.9,  facilities: 1842, avgTrust: 38, deserts: ["oncology","mental_health"], severity: "critical" },
-  { state: "Maharashtra",    lat: 19.7, lng: 75.7,  facilities: 1205, avgTrust: 61, deserts: ["dialysis"], severity: "medium" },
-  { state: "Bihar",          lat: 25.9, lng: 85.1,  facilities: 923,  avgTrust: 29, deserts: ["oncology","dialysis","neonatal_icu"], severity: "critical" },
-  { state: "West Bengal",    lat: 22.9, lng: 87.8,  facilities: 812,  avgTrust: 47, deserts: ["emergency_trauma"], severity: "high" },
-  { state: "Rajasthan",      lat: 27.0, lng: 74.2,  facilities: 734,  avgTrust: 35, deserts: ["dialysis","oncology"], severity: "critical" },
-  { state: "Madhya Pradesh", lat: 23.5, lng: 77.5,  facilities: 698,  avgTrust: 33, deserts: ["oncology","mental_health","neonatal_icu"], severity: "critical" },
-  { state: "Tamil Nadu",     lat: 11.1, lng: 78.7,  facilities: 876,  avgTrust: 68, deserts: [], severity: "low" },
-  { state: "Karnataka",      lat: 15.3, lng: 75.7,  facilities: 748,  avgTrust: 63, deserts: ["mental_health"], severity: "medium" },
-  { state: "Gujarat",        lat: 22.3, lng: 72.6,  facilities: 612,  avgTrust: 55, deserts: ["dialysis"], severity: "medium" },
-  { state: "Kerala",         lat: 10.5, lng: 76.2,  facilities: 584,  avgTrust: 72, deserts: [], severity: "low" },
-  { state: "Telangana",      lat: 17.4, lng: 79.1,  facilities: 423,  avgTrust: 58, deserts: ["mental_health"], severity: "medium" },
-  { state: "Andhra Pradesh", lat: 15.9, lng: 80.0,  facilities: 512,  avgTrust: 52, deserts: ["neonatal_icu"], severity: "medium" },
-  { state: "Delhi",          lat: 28.6, lng: 77.2,  facilities: 387,  avgTrust: 74, deserts: [], severity: "low" },
-  { state: "Punjab",         lat: 31.1, lng: 75.3,  facilities: 298,  avgTrust: 59, deserts: ["oncology"], severity: "high" },
-  { state: "Odisha",         lat: 20.9, lng: 84.2,  facilities: 412,  avgTrust: 31, deserts: ["oncology","dialysis","emergency_trauma"], severity: "critical" },
-];
+// Data loaded from backend API
+let DESERT_DATA = [];
+let STATES_DATA = [];
+let FACILITIES_DATA = [];
 
-const SAMPLE_FACILITIES = [
-  { name: "AIIMS Patna", lat: 25.614, lng: 85.143, state: "Bihar", type: "Hospital", trust: 78, specialties: ["Emergency","Surgery","ICU"], citation: "24-hour emergency department with 12 ICU beds and dedicated trauma bay operational.", hasIcu: true, hasEmergency: true },
-  { name: "Narayana Health Bengaluru", lat: 12.923, lng: 77.600, state: "Karnataka", type: "Hospital", trust: 85, specialties: ["Cardiology","Oncology","Neurology"], citation: "Advanced cardiac catheterisation lab with 200+ annual open-heart surgeries.", hasIcu: true, hasEmergency: true },
-  { name: "PGIMS Rohtak", lat: 28.898, lng: 76.596, state: "Haryana", type: "Hospital", trust: 65, specialties: ["Emergency","Obstetrics","Dialysis"], citation: "State referral centre with 8 dialysis stations and neonatal ICU of 15 beds.", hasIcu: true, hasEmergency: true },
-  { name: "Darbhanga Medical", lat: 26.152, lng: 85.900, state: "Bihar", type: "Hospital", trust: 28, specialties: ["General Medicine"], citation: "Basic outpatient services; equipment list mentions ventilator but no supporting staff data.", hasIcu: false, hasEmergency: false },
-  { name: "KEM Hospital Mumbai", lat: 18.998, lng: 72.840, state: "Maharashtra", type: "Hospital", trust: 81, specialties: ["Trauma","Oncology","Dialysis"], citation: "Fully operational trauma centre Level-I with 24/7 blood bank and burn unit.", hasIcu: true, hasEmergency: true },
-  { name: "Varanasi City Clinic", lat: 25.317, lng: 82.970, state: "Uttar Pradesh", type: "Clinic", trust: 22, specialties: ["General Medicine"], citation: "Outpatient only. Closes at 8pm. Claims surgical capability but no anaesthesiologist listed.", hasIcu: false, hasEmergency: false },
-  { name: "JIPMER Puducherry", lat: 11.936, lng: 79.842, state: "Tamil Nadu", type: "Hospital", trust: 88, specialties: ["Oncology","Neurology","Emergency"], citation: "Premier institute with 150-bed oncology block and Level-I trauma centre.", hasIcu: true, hasEmergency: true },
-  { name: "MGM Jamshedpur", lat: 22.806, lng: 86.203, state: "Jharkhand", type: "Hospital", trust: 54, specialties: ["Cardiology","Dialysis"], citation: "4 dialysis units operational; cardiac OPD 6 days/week.", hasIcu: false, hasEmergency: false },
-  { name: "Medanta Gurgaon", lat: 28.448, lng: 77.073, state: "Delhi", type: "Hospital", trust: 91, specialties: ["Cardiology","Oncology","Neuro"], citation: "Multi-specialty tertiary care with 45-bed ICU and robotic surgery suite.", hasIcu: true, hasEmergency: true },
-  { name: "Rural PHC Barmer", lat: 25.745, lng: 71.410, state: "Rajasthan", type: "Clinic", trust: 18, specialties: [], citation: "Primary health centre. No equipment data available. Single doctor reported.", hasIcu: false, hasEmergency: false },
-  { name: "NIMHANS Bengaluru", lat: 12.943, lng: 77.596, state: "Karnataka", type: "Hospital", trust: 86, specialties: ["Mental Health","Neurology"], citation: "National institute for mental health. 500+ bed psychiatric facility with research centre.", hasIcu: false, hasEmergency: false },
-  { name: "RIMS Imphal", lat: 24.817, lng: 93.939, state: "Manipur", type: "Hospital", trust: 45, specialties: ["Emergency","General Surgery"], citation: "Regional referral with casualty unit. Equipment partially listed; ICU under renovation.", hasIcu: false, hasEmergency: true },
-  { name: "Tata Memorial Mumbai", lat: 18.998, lng: 72.847, state: "Maharashtra", type: "Hospital", trust: 93, specialties: ["Oncology"], citation: "Apex cancer institute; 600 beds dedicated oncology with chemotherapy and radiotherapy.", hasIcu: true, hasEmergency: false },
-  { name: "NRS Medical Kolkata", lat: 22.570, lng: 88.380, state: "West Bengal", type: "Hospital", trust: 61, specialties: ["Emergency","Obstetrics","General Surgery"], citation: "24-hour casualty with 8 emergency bays. Obstetrics and neonatal unit functional.", hasIcu: true, hasEmergency: true },
-  { name: "Lakeshore Kochi", lat: 9.931, lng: 76.267, state: "Kerala", type: "Hospital", trust: 79, specialties: ["Cardiology","Dialysis","Oncology"], citation: "NABH-accredited facility with 6 dialysis units and 24/7 cardiac emergency.", hasIcu: true, hasEmergency: true },
-  { name: "Bhopal Memorial", lat: 23.259, lng: 77.412, state: "Madhya Pradesh", type: "Hospital", trust: 42, specialties: ["Emergency","General Medicine"], citation: "Casualty operational. Oncology OPD mentioned but no dedicated unit confirmed.", hasIcu: false, hasEmergency: true },
-  { name: "SGT Hospital Gurugram", lat: 28.398, lng: 76.997, state: "Delhi", type: "Hospital", trust: 67, specialties: ["Obstetrics","Neonatal ICU","Surgery"], citation: "16-bed NICU with level-3 care. Maternal ICU available for high-risk deliveries.", hasIcu: true, hasEmergency: false },
-  { name: "Sukrala PHC Bihar Sharif", lat: 25.198, lng: 85.524, state: "Bihar", type: "Clinic", trust: 14, specialties: [], citation: "No description available. Only name and coordinates on record.", hasIcu: false, hasEmergency: false },
-  { name: "SRMS Bareilly", lat: 28.364, lng: 79.432, state: "Uttar Pradesh", type: "Hospital", trust: 49, specialties: ["Surgery","Dialysis"], citation: "3 dialysis units; surgical block with general and orthopaedic OTs.", hasIcu: false, hasEmergency: false },
-  { name: "Apollo Chennai", lat: 13.062, lng: 80.215, state: "Tamil Nadu", type: "Hospital", trust: 89, specialties: ["Oncology","Cardiology","Neuro","Emergency"], citation: "JCI-accredited hospital; proton therapy unit and 80-bed ICU with 24/7 intensivists.", hasIcu: true, hasEmergency: true },
-];
+const BACKEND_URL = window.BACKEND_URL || '';
 
-const DESERT_DATA = [
-  { state: "Bihar", specialty: "Oncology", severity: "critical", count: 2, total: 923, lat: 25.9, lng: 85.1 },
-  { state: "Bihar", specialty: "Dialysis", severity: "critical", count: 4, total: 923, lat: 25.7, lng: 84.8 },
-  { state: "Uttar Pradesh", specialty: "Mental Health", severity: "critical", count: 3, total: 1842, lat: 27.1, lng: 81.5 },
-  { state: "Rajasthan", specialty: "Dialysis", severity: "critical", count: 5, total: 734, lat: 27.4, lng: 74.9 },
-  { state: "Odisha", specialty: "Oncology", severity: "critical", count: 1, total: 412, lat: 20.5, lng: 84.8 },
-  { state: "Madhya Pradesh", specialty: "Neonatal ICU", severity: "critical", count: 2, total: 698, lat: 23.2, lng: 77.9 },
-  { state: "West Bengal", specialty: "Emergency Trauma", severity: "high", count: 8, total: 812, lat: 23.2, lng: 87.5 },
-  { state: "Punjab", specialty: "Oncology", severity: "high", count: 6, total: 298, lat: 30.9, lng: 75.8 },
-  { state: "Madhya Pradesh", specialty: "Mental Health", severity: "critical", count: 1, total: 698, lat: 24.0, lng: 78.0 },
-  { state: "Odisha", specialty: "Emergency Trauma", severity: "critical", count: 3, total: 412, lat: 21.5, lng: 83.5 },
-];
+async function loadAllData() {
+  try {
+    const desertRes = await fetch(BACKEND_URL + '/deserts');
+    const desertJson = await desertRes.json();
+    
+    DESERT_DATA = (desertJson.deserts || []).map(function(d) {
+      return { state: d.state, specialty: d.specialty, severity: d.severity.toLowerCase(), count: d.count, total: d.total, lat: d.lat, lng: d.lng, action: d.action };
+    });
+
+    STATES_DATA = (desertJson.state_summary || []).map(function(s) {
+      return { state: s.state, severity: s.severity.toLowerCase(), facilities: s.facilities, lat: s.lat, lng: s.lng };
+    });
+
+    const facilityRes = await fetch(BACKEND_URL + '/map/data');
+    const facilityJson = await facilityRes.json();
+    FACILITIES_DATA = facilityJson.facilities || [];
+
+    drawFacilities(FACILITIES_DATA);
+    drawDeserts();
+    drawClusters();
+
+    console.log('Loaded:', FACILITIES_DATA.length, 'facilities,', DESERT_DATA.length, 'desert entries');
+  } catch(err) {
+    console.error('Failed to load backend data:', err);
+  }
+}
 
 // ─── INIT MAP ───
+
 const map = L.map('map', {
   center: [22.5, 82.0],
   zoom: 5,
@@ -791,8 +772,8 @@ function applyFilters() {
 }
 
 // ─── INIT ───
-drawFacilities(SAMPLE_FACILITIES);
-drawDeserts();
+// Load real data from backend
+loadAllData();
 renderDesertList();
 renderStateBreakdown();
 document.getElementById('heatLegend').style.display = 'block';

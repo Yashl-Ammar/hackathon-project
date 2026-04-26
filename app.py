@@ -39,15 +39,17 @@ app.add_middleware(
 )
 
 # ── Import query agent module ─────────────────────────────────
+_import_error = None
 try:
     from query_agent import query_healthcare, spark, deploy_client
     SPARK_AVAILABLE = spark is not None
     print(f"Query agent loaded. Spark: {SPARK_AVAILABLE}")
 except Exception as e:
     SPARK_AVAILABLE = False
-    print(f"Query agent import error: {e}")
+    _import_error = str(e)
+    print(f"Query agent import error: {_import_error}")
     def query_healthcare(query, num_results=10, verbose=False):
-        raise RuntimeError(f"Query agent not available: {e}")
+        raise RuntimeError(f"Query agent not available: {_import_error}")
 
 # ── Request/Response models ───────────────────────────────────
 
@@ -568,8 +570,9 @@ def facility_detail(facility_name: str):
 @app.get("/health")
 def health():
     return {
-        "status":          "ok",
+        "status":          "ok" if not _import_error else "degraded",
         "spark_available": SPARK_AVAILABLE,
+        "import_error":    _import_error,
         "version":         "1.0.0"
     }
 

@@ -1,0 +1,21 @@
+# Dataset (too large for git)
+VF_Hackathon_Dataset_India_Large.csv
+
+# Generated pipeline outputs
+caremap_output/
+
+# MLflow local database
+mlflow.db
+mlruns/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.env
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db

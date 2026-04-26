@@ -3,3 +3,5 @@ uvicorn
 pydantic
 mlflow
 databricks-connect
+openai
+python-multipart

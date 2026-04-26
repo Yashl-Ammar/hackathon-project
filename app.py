@@ -14,7 +14,7 @@ Serves:
 Deploy: Upload app.py, index.html, map.html to Databricks Apps
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -24,7 +24,17 @@ import time
 import os
 import sys
 import threading
+import tempfile
 from contextlib import asynccontextmanager
+
+# OpenAI client for Whisper transcription (voice input)
+try:
+    from openai import OpenAI as _OpenAI
+    _openai_client = _OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+    WHISPER_AVAILABLE = bool(os.environ.get("OPENAI_API_KEY"))
+except Exception:
+    _openai_client = None
+    WHISPER_AVAILABLE = False
 
 # ── Desert data cache ────────────────────────────────────────
 _desert_cache = None          # Optional[dict] — py3.9 compatible
@@ -392,6 +402,36 @@ def query_endpoint(request: QueryRequest):
             status_code=500,
             detail=f"Query agent error: {str(e)}"
         )
+
+
+@app.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...), language: str = Form("hi")):
+    """
+    Receive a browser-recorded audio blob and transcribe it via OpenAI Whisper.
+    `language` should be an ISO-639-1 code: 'hi' for Hindi, 'ur' for Urdu, 'en' for English.
+    Returns { "transcript": "...", "language": "hi" }
+    """
+    if not WHISPER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Transcription unavailable: OPENAI_API_KEY not set")
+
+    # Write upload to a temp file — Whisper SDK needs a file path or file-like object
+    suffix = ".webm"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await audio.read())
+        tmp_path = tmp.name
+
+    try:
+        with open(tmp_path, "rb") as f:
+            result = _openai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                language=language,   # hint helps accuracy for Hindi/Urdu
+            )
+        return JSONResponse(content={"transcript": result.text, "language": language})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+    finally:
+        os.unlink(tmp_path)
 
 
 @app.get("/map/data")

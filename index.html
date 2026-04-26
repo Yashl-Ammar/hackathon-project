@@ -658,15 +658,19 @@
 const OPENAI_API_KEY = "";  // ← paste your key here
 
 // ── Voice / language state ─────────────────────────────────────
-let currentLang = 'en-IN';
-let recognition  = null;
-let isRecording  = false;
+let currentLang  = 'en-IN';
+let mediaRecorder = null;
+let audioChunks   = [];
+let isRecording   = false;
 
 const LANG_PLACEHOLDERS = {
   'en-IN': 'e.g. Find the nearest ICU in rural Bihar with a trust score above 60…',
   'hi-IN': 'उदाहरण: बिहार में निकटतम आईसीयू खोजें…',
   'ur-PK': 'مثال: بہار میں قریب ترین آئی سی یو تلاش کریں…',
 };
+
+// ISO-639-1 codes for Whisper
+const LANG_WHISPER = { 'en-IN': 'en', 'hi-IN': 'hi', 'ur-PK': 'ur' };
 
 function setLang(lang, el) {
   currentLang = lang;
@@ -679,57 +683,78 @@ function toggleMic() {
   if (isRecording) { stopMic(); } else { startMic(); }
 }
 
-function startMic() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    appendMsg('bot', '<span style="color:var(--amber)">Speech recognition is not supported in this browser. Please use Chrome or Edge.</span>');
+async function startMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    appendMsg('bot', '<span style="color:var(--amber)">Your browser does not support microphone access.</span>');
     return;
   }
-  recognition = new SpeechRecognition();
-  recognition.lang = currentLang;
-  recognition.interimResults = true;
-  recognition.continuous = false;
 
-  const micBtn = document.getElementById('micBtn');
-  const input  = document.getElementById('userInput');
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    appendMsg('bot', `<span style="color:var(--red)">Microphone access denied: ${err.message}</span>`);
+    return;
+  }
 
-  recognition.onstart = () => {
-    isRecording = true;
-    micBtn.classList.add('recording');
-    const listeningText = { 'hi-IN': 'सुन रहा है…', 'ur-PK': 'سن رہا ہے…' }[currentLang] || 'Listening…';
-    input.placeholder = listeningText;
-  };
+  audioChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
 
-  recognition.onresult = (event) => {
-    let transcript = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
-    }
-    input.value = transcript;
-    input.style.height = 'auto';
-    input.style.height = input.scrollHeight + 'px';
-  };
+  mediaRecorder.onstop = async () => {
+    // Stop all mic tracks
+    stream.getTracks().forEach(t => t.stop());
 
-  recognition.onend = () => {
-    isRecording = false;
-    micBtn.classList.remove('recording');
-    input.placeholder = LANG_PLACEHOLDERS[currentLang] || LANG_PLACEHOLDERS['en-IN'];
-  };
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const micBtn = document.getElementById('micBtn');
+    const input  = document.getElementById('userInput');
 
-  recognition.onerror = (event) => {
-    isRecording = false;
-    micBtn.classList.remove('recording');
     input.placeholder = LANG_PLACEHOLDERS[currentLang];
-    if (event.error !== 'no-speech') {
-      appendMsg('bot', `<span style="color:var(--red)">Microphone error: ${event.error}</span>`);
+    input.value = '';
+
+    // Show spinner in placeholder while transcribing
+    const whisperLang = LANG_WHISPER[currentLang] || 'hi';
+    const transcribingText = { 'hi-IN': 'अनुवाद हो रहा है…', 'ur-PK': 'ترجمہ ہو رہا ہے…' }[currentLang] || 'Transcribing…';
+    input.placeholder = transcribingText;
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', blob, 'recording.webm');
+      formData.append('language', whisperLang);
+
+      const BACKEND_URL = window.BACKEND_URL || '';
+      const res = await fetch(BACKEND_URL + '/transcribe', { method: 'POST', body: formData });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+
+      const data = await res.json();
+      input.value = data.transcript || '';
+      input.style.height = 'auto';
+      input.style.height = input.scrollHeight + 'px';
+      input.placeholder = LANG_PLACEHOLDERS[currentLang];
+    } catch (err) {
+      input.placeholder = LANG_PLACEHOLDERS[currentLang];
+      appendMsg('bot', `<span style="color:var(--red)">Transcription failed: ${err.message}</span>`);
     }
+
+    micBtn.classList.remove('recording');
+    isRecording = false;
   };
 
-  recognition.start();
+  mediaRecorder.start();
+  isRecording = true;
+  document.getElementById('micBtn').classList.add('recording');
+  const listeningText = { 'hi-IN': 'सुन रहा है…', 'ur-PK': 'سن رہا ہے…' }[currentLang] || 'Listening…';
+  document.getElementById('userInput').placeholder = listeningText;
 }
 
 function stopMic() {
-  if (recognition) { recognition.stop(); recognition = null; }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();  // triggers onstop which handles everything
+  }
 }
 
 function setQuery(q) {

@@ -40,8 +40,9 @@ app.add_middleware(
 
 # ── Import query agent module ─────────────────────────────────
 _import_error = None
+_spark_error = None
 try:
-    from query_agent import query_healthcare, spark, deploy_client
+    from query_agent import query_healthcare, spark, deploy_client, spark_error as _spark_error
     SPARK_AVAILABLE = spark is not None
     print(f"Query agent loaded. Spark: {SPARK_AVAILABLE}")
 except Exception as e:
@@ -570,9 +571,10 @@ def facility_detail(facility_name: str):
 @app.get("/health")
 def health():
     return {
-        "status":          "ok" if not _import_error else "degraded",
+        "status":          "ok" if not _import_error and not _spark_error else "degraded",
         "spark_available": SPARK_AVAILABLE,
         "import_error":    _import_error,
+        "spark_error":     _spark_error,
         "version":         "1.0.0"
     }
 

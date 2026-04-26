@@ -26,6 +26,7 @@ SILVER_TABLE = "workspace.silver.facilities_clean"
 LLM_ENDPOINT = "databricks-meta-llama-3-3-70b-instruct"
 
 # ── Spark + MLflow setup ──────────────────────────────────────
+spark_error = None
 try:
     from pyspark.sql import SparkSession
     warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID", "")
@@ -35,7 +36,8 @@ try:
         .getOrCreate()
     print(f"Spark session created with warehouse: {warehouse_id}")
 except Exception as e:
-    print(f"Spark error: {e}")
+    spark_error = str(e)
+    print(f"Spark error: {spark_error}")
     spark = None
 
 try:

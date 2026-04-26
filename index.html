@@ -828,7 +828,7 @@ async function showFacilityDetail(name) {
     if (f.trust_breakdown && Object.keys(f.trust_breakdown).length) {
       breakdownHtml = '<div style="margin-top:10px">';
       for (const [dim, val] of Object.entries(f.trust_breakdown)) {
-        const pct = Math.round(val * 100);
+        const pct = val > 1 ? Math.round(val) : Math.round(val * 100);
         const barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
         breakdownHtml += `
           <div style="margin-bottom:5px;font-size:12px">

@@ -157,7 +157,7 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     emerg_clause         = "AND (g.extracted_availability LIKE '%\"has_emergency\": true%' OR g.extracted_availability LIKE '%\"has_emergency\":true%')" if req_emerg else ""
     dialysis_clause      = "AND (CAST(s.specialties AS STRING) LIKE '%nephrology%' OR CAST(s.specialties AS STRING) LIKE '%dialysis%')" if req_dialysis else ""
     contradictions_clause = (
-        "AND g.contradictions IS NOT NULL AND LENGTH(TRIM(g.contradictions)) > 2 AND g.contradictions NOT IN ('[]', '{}', 'null', '')"
+        "AND g.contradictions IS NOT NULL AND SIZE(g.contradictions) > 0"
     ) if req_contradictions else ""
 
     # Generic words that match everything or are meta-query words — exclude from keyword filter

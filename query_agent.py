@@ -26,10 +26,26 @@ SILVER_TABLE = "workspace.silver.facilities_clean"
 LLM_ENDPOINT = "databricks-meta-llama-3-3-70b-instruct"
 
 # ── Spark + MLflow setup ──────────────────────────────────────
-spark = SparkSession.builder.getOrCreate()
+# ── Spark + MLflow setup ──────────────────────────────────────
+try:
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder \
+        .config("spark.databricks.service.client.enabled", "true") \
+        .getOrCreate()
+    print("Spark session created")
+except Exception as e:
+    print(f"Spark error: {e}")
+    spark = None
 
-mlflow.set_experiment("/Users/yashlammarr@gmail.com/query_agent_runs")
-deploy_client = mlflow.deployments.get_deploy_client("databricks")
+try:
+    import mlflow
+    import mlflow.deployments
+    mlflow.set_experiment("/Users/yashlammarr@gmail.com/query_agent_runs")
+    deploy_client = mlflow.deployments.get_deploy_client("databricks")
+    print("MLflow client created")
+except Exception as e:
+    print(f"MLflow error: {e}")
+    deploy_client = None
 
 # ── LLM helper ────────────────────────────────────────────────
 def _call_llm(messages: list, max_tokens: int = 800) -> str:

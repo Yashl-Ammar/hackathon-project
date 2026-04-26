@@ -144,6 +144,8 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     req_icu       = parsed_query.get("requires_icu")
     req_emerg     = parsed_query.get("requires_emergency")
     req_dialysis  = parsed_query.get("requires_dialysis")
+    search_text   = parsed_query.get("search_text") or ""
+    specialties   = parsed_query.get("specialties") or []
 
     state_clause    = f"AND s.address_stateOrRegion = '{state}'"         if state         else ""
     city_clause     = f"AND s.address_city LIKE '%{city}%'"              if city          else ""
@@ -152,6 +154,21 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     icu_clause      = "AND (g.extracted_availability LIKE '%\"has_icu\": true%' OR g.extracted_availability LIKE '%\"has_icu\":true%')"         if req_icu      else ""
     emerg_clause    = "AND (g.extracted_availability LIKE '%\"has_emergency\": true%' OR g.extracted_availability LIKE '%\"has_emergency\":true%')" if req_emerg else ""
     dialysis_clause = "AND (CAST(s.specialties AS STRING) LIKE '%nephrology%' OR CAST(s.specialties AS STRING) LIKE '%dialysis%')" if req_dialysis else ""
+
+    # Text search: use significant words from search_text + specialties
+    # Each word must appear somewhere in the facility's searchable_text or capabilities
+    text_terms = [w for w in search_text.lower().split() if len(w) > 3]
+    for sp in specialties[:3]:
+        text_terms += [w for w in sp.lower().split() if len(w) > 3]
+    text_terms = list(dict.fromkeys(text_terms))[:6]  # dedupe, cap at 6 terms
+    if text_terms:
+        text_conditions = " OR ".join(
+            f"s.searchable_text LIKE '%{t}%' OR g.extracted_capabilities LIKE '%{t}%'"
+            for t in text_terms
+        )
+        text_clause = f"AND ({text_conditions})"
+    else:
+        text_clause = ""
 
     query = f"""
         SELECT
@@ -186,6 +203,7 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
         {icu_clause}
         {emerg_clause}
         {dialysis_clause}
+        {text_clause}
         ORDER BY g.trust_score DESC
         LIMIT 100
     """

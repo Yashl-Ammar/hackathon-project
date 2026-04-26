@@ -803,9 +803,119 @@ async function sendMessage() {
   }
 }
 
-function showFacilityDetail(name) {
+async function showFacilityDetail(name) {
   appendMsg('user', `Show full profile for: ${name}`);
-  document.getElementById('userInput').value = `Show full trust score breakdown and all extracted data for: ${name}`;
+  showTyping();
+
+  try {
+    const BACKEND_URL = window.BACKEND_URL || '';
+    const res = await fetch(BACKEND_URL + '/facility/' + encodeURIComponent(name));
+    removeTyping();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({detail: res.statusText}));
+      appendMsg('bot', `<span style="color:var(--red)">Could not load profile: ${err.detail || res.statusText}</span>`);
+      return;
+    }
+
+    const f = await res.json();
+
+    // Trust score colour
+    const tc = f.trust_score >= 80 ? 'var(--green)' : f.trust_score >= 60 ? 'var(--yellow)' : 'var(--red)';
+
+    // Trust breakdown bars
+    let breakdownHtml = '';
+    if (f.trust_breakdown && Object.keys(f.trust_breakdown).length) {
+      breakdownHtml = '<div style="margin-top:10px">';
+      for (const [dim, val] of Object.entries(f.trust_breakdown)) {
+        const pct = Math.round(val * 100);
+        const barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
+        breakdownHtml += `
+          <div style="margin-bottom:5px;font-size:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+              <span style="color:var(--text2);text-transform:capitalize">${dim.replace(/_/g,' ')}</span>
+              <span style="color:${barColor};font-weight:600">${pct}%</span>
+            </div>
+            <div style="background:var(--surface3);border-radius:3px;height:4px">
+              <div style="background:${barColor};width:${pct}%;height:4px;border-radius:3px"></div>
+            </div>
+          </div>`;
+      }
+      breakdownHtml += '</div>';
+    }
+
+    // Capabilities list
+    const caps = Array.isArray(f.extracted_capabilities) ? f.extracted_capabilities : [];
+    const capsHtml = caps.length
+      ? caps.map(c => `<span class="tag">${c}</span>`).join(' ')
+      : '<span style="color:var(--text3)">None extracted</span>';
+
+    // Availability flags
+    const av = f.extracted_availability || {};
+    const avFlags = [
+      av.has_icu       ? '<span class="tag">ICU</span>'       : '',
+      av.has_emergency ? '<span class="tag">Emergency</span>' : '',
+      av.has_24_7      ? '<span class="tag">24/7</span>'      : '',
+    ].filter(Boolean).join(' ') || '<span style="color:var(--text3)">Not extracted</span>';
+
+    // Contradictions
+    const contras = Array.isArray(f.contradictions) ? f.contradictions : [];
+    const contraHtml = contras.length
+      ? contras.map(c => `<div style="color:var(--red);font-size:12px;margin-top:4px">⚠ ${c}</div>`).join('')
+      : '<span style="color:var(--text3);font-size:12px">None recorded</span>';
+
+    // Equipment / staff
+    const equip = Array.isArray(f.extracted_equipment) ? f.extracted_equipment : [];
+    const equipHtml = equip.length ? equip.slice(0,6).map(e=>`<span class="tag">${e}</span>`).join(' ') : '<span style="color:var(--text3)">None extracted</span>';
+
+    const staff = f.extracted_staff || {};
+    const staffLines = Object.entries(staff).filter(([,v])=>v).map(([k,v])=>`<span style="color:var(--text2);font-size:12px">${k.replace(/_/g,' ')}: <b>${v}</b></span>`).join(' &nbsp;·&nbsp; ');
+
+    appendMsg('bot', `
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">${f.name}</div>
+      <div style="color:var(--text2);font-size:12px;margin-bottom:10px">
+        📍 ${[f.address, f.city, f.state, f.pin_code].filter(Boolean).join(', ')}
+        ${f.phone ? ' &nbsp;·&nbsp; 📞 ' + f.phone : ''}
+        ${f.website ? ` &nbsp;·&nbsp; <a href="${f.website}" target="_blank" style="color:var(--accent)">Website</a>` : ''}
+        ${f.year_established && f.year_established !== 'nan' ? ' &nbsp;·&nbsp; Est. ' + f.year_established : ''}
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="font-size:28px;font-weight:700;color:${tc}">${f.trust_score.toFixed(1)}</div>
+        <div>
+          <div style="font-size:11px;color:var(--text3)">Trust Score</div>
+          <div style="font-size:12px;color:var(--text2)">${f.confidence_level || ''} confidence</div>
+        </div>
+        <div style="margin-left:auto;font-size:12px;color:var(--text2)">
+          ${f.facility_type || ''} &nbsp;·&nbsp; ${f.extracted_bed_count ? f.extracted_bed_count + ' beds' : ''}
+          ${f.data_completeness ? ' &nbsp;·&nbsp; ' + Math.round(f.data_completeness*100) + '% complete' : ''}
+        </div>
+      </div>
+
+      ${breakdownHtml}
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
+
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">AVAILABILITY</div>
+      <div style="margin-bottom:10px">${avFlags}</div>
+
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">CAPABILITIES</div>
+      <div style="margin-bottom:10px">${capsHtml}</div>
+
+      ${equip.length ? `<div style="font-size:12px;color:var(--text3);margin-bottom:4px">EQUIPMENT</div><div style="margin-bottom:10px">${equipHtml}</div>` : ''}
+
+      ${staffLines ? `<div style="font-size:12px;color:var(--text3);margin-bottom:4px">STAFF</div><div style="margin-bottom:10px;font-size:12px">${staffLines}</div>` : ''}
+
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">CONTRADICTIONS</div>
+      <div style="margin-bottom:6px">${contraHtml}</div>
+
+      ${f.description ? `<hr style="border:none;border-top:1px solid var(--border);margin:10px 0"><div style="font-size:12px;color:var(--text2)">${f.description.slice(0,400)}${f.description.length>400?'…':''}</div>` : ''}
+    `);
+
+  } catch(err) {
+    removeTyping();
+    appendMsg('bot', `<span style="color:var(--red)">Error loading profile: ${err.message}</span>`);
+  }
 }
 </script>
 </body>

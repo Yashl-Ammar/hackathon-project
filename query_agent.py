@@ -94,16 +94,17 @@ Himachal Pradesh, Goa, Tripura, Meghalaya, Manipur, Nagaland, Puducherry, Chandi
 """
 
 PARSER_SCHEMA = {
-    "state":             "Indian state name or null if not specified",
-    "city":              "City name or null",
-    "facility_type":     "One of: hospital, clinic, dentist, doctor, pharmacy, or null",
-    "specialties":       "List of medical specialties e.g. ['oncology', 'cardiology']",
-    "requires_icu":      "true/false/null",
-    "requires_emergency":"true/false/null",
-    "requires_24_7":     "true/false/null",
-    "requires_dialysis": "true/false/null",
-    "min_trust_score":   "Minimum trust score 0-100 or null",
-    "search_text":       "Core clinical search terms for semantic search"
+    "state":                   "Indian state name or null if not specified",
+    "city":                    "City name or null",
+    "facility_type":           "One of: hospital, clinic, dentist, doctor, pharmacy, or null",
+    "specialties":             "List of medical specialties e.g. ['oncology', 'cardiology']",
+    "requires_icu":            "true/false/null",
+    "requires_emergency":      "true/false/null",
+    "requires_24_7":           "true/false/null",
+    "requires_dialysis":       "true/false/null",
+    "requires_contradictions": "true if user wants facilities WITH data contradictions/disputes, false/null otherwise",
+    "min_trust_score":         "Minimum trust score 0-100 or null",
+    "search_text":             "Core clinical search terms — exclude meta-words like 'contradictions', 'disputes', 'claiming'"
 }
 
 @mlflow.trace(span_type="LLM", name="parse_query")
@@ -137,30 +138,37 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     Vector Search skipped — SQL-only mode for hackathon.
     """
     # Pre-build conditional clauses
-    state         = parsed_query.get("state")
-    city          = parsed_query.get("city")
-    facility_type = parsed_query.get("facility_type")
-    min_trust     = parsed_query.get("min_trust_score")
-    req_icu       = parsed_query.get("requires_icu")
-    req_emerg     = parsed_query.get("requires_emergency")
-    req_dialysis  = parsed_query.get("requires_dialysis")
-    search_text   = parsed_query.get("search_text") or ""
-    specialties   = parsed_query.get("specialties") or []
+    state                = parsed_query.get("state")
+    city                 = parsed_query.get("city")
+    facility_type        = parsed_query.get("facility_type")
+    min_trust            = parsed_query.get("min_trust_score")
+    req_icu              = parsed_query.get("requires_icu")
+    req_emerg            = parsed_query.get("requires_emergency")
+    req_dialysis         = parsed_query.get("requires_dialysis")
+    req_contradictions   = parsed_query.get("requires_contradictions")
+    search_text          = parsed_query.get("search_text") or ""
+    specialties          = parsed_query.get("specialties") or []
 
-    state_clause    = f"AND s.address_stateOrRegion = '{state}'"         if state         else ""
-    city_clause     = f"AND s.address_city LIKE '%{city}%'"              if city          else ""
-    type_clause     = f"AND s.facilityTypeId = '{facility_type}'"        if facility_type else ""
-    trust_clause    = f"AND g.trust_score >= {min_trust}"                if min_trust     else ""
-    icu_clause      = "AND (g.extracted_availability LIKE '%\"has_icu\": true%' OR g.extracted_availability LIKE '%\"has_icu\":true%')"         if req_icu      else ""
-    emerg_clause    = "AND (g.extracted_availability LIKE '%\"has_emergency\": true%' OR g.extracted_availability LIKE '%\"has_emergency\":true%')" if req_emerg else ""
-    dialysis_clause = "AND (CAST(s.specialties AS STRING) LIKE '%nephrology%' OR CAST(s.specialties AS STRING) LIKE '%dialysis%')" if req_dialysis else ""
+    state_clause         = f"AND s.address_stateOrRegion LIKE '%{state}%'"   if state         else ""
+    city_clause          = f"AND s.address_city LIKE '%{city}%'"             if city          else ""
+    type_clause          = f"AND s.facilityTypeId = '{facility_type}'"       if facility_type else ""
+    trust_clause         = f"AND g.trust_score >= {min_trust}"               if min_trust     else ""
+    icu_clause           = "AND (g.extracted_availability LIKE '%\"has_icu\": true%' OR g.extracted_availability LIKE '%\"has_icu\":true%')"         if req_icu      else ""
+    emerg_clause         = "AND (g.extracted_availability LIKE '%\"has_emergency\": true%' OR g.extracted_availability LIKE '%\"has_emergency\":true%')" if req_emerg else ""
+    dialysis_clause      = "AND (CAST(s.specialties AS STRING) LIKE '%nephrology%' OR CAST(s.specialties AS STRING) LIKE '%dialysis%')" if req_dialysis else ""
+    contradictions_clause = (
+        "AND g.contradictions IS NOT NULL AND LENGTH(TRIM(g.contradictions)) > 2 AND g.contradictions NOT IN ('[]', '{}', 'null', '')"
+    ) if req_contradictions else ""
 
-    # Generic healthcare words that match everything — exclude from keyword filter
+    # Generic words that match everything or are meta-query words — exclude from keyword filter
     _STOP_WORDS = {
         "care", "clinic", "clinics", "hospital", "hospitals", "medical", "health",
         "centre", "center", "centers", "services", "service", "department", "unit",
         "find", "need", "want", "best", "good", "near", "india", "with", "that",
         "have", "their", "from", "this", "show", "give", "list", "looking",
+        # meta-query words (intent words, not clinical terms)
+        "claiming", "contradictions", "contradiction", "disputes", "disputed",
+        "verified", "unverified", "flagged", "suspicious",
     }
 
     # Collect meaningful terms: min length 3 (catches "eye", "icu", "ent"), skip stop words
@@ -224,6 +232,7 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
         {icu_clause}
         {emerg_clause}
         {dialysis_clause}
+        {contradictions_clause}
         {text_clause}
         ORDER BY {order_by}
         LIMIT 100
@@ -506,6 +515,202 @@ Only include claims with EXPLICIT evidence. Return ONLY the JSON."""
 
 
 # ═══════════════════════════════════════════════════════════════
+# DESERT / GAP QUERY PATH
+# ═══════════════════════════════════════════════════════════════
+
+_DESERT_KEYWORDS = {
+    "desert", "deserts", "gap", "gaps", "underserved", "no facility", "no facilities",
+    "lack", "lacking", "missing", "absent", "unavailable", "shortage", "shortages",
+    "without", "unserved", "deprived", "coverage", "uncovered",
+}
+
+# Map common clinical phrases → specialty keywords to search in desert_analysis table
+_SPECIALTY_MAP = {
+    "dialysis":    ["dialysis", "nephrology"],
+    "kidney":      ["dialysis", "nephrology"],
+    "renal":       ["dialysis", "nephrology"],
+    "mental":      ["psychiatry", "mental health", "psychology"],
+    "psychiatry":  ["psychiatry", "mental health"],
+    "psychiatric": ["psychiatry", "mental health"],
+    "trauma":      ["emergency", "trauma"],
+    "emergency":   ["emergency", "trauma"],
+    "cancer":      ["oncology"],
+    "oncology":    ["oncology"],
+    "heart":       ["cardiology"],
+    "cardiac":     ["cardiology"],
+    "cardiology":  ["cardiology"],
+    "maternity":   ["obstetrics", "gynecology"],
+    "obstetric":   ["obstetrics", "gynecology"],
+    "gynecology":  ["gynecology", "obstetrics"],
+    "eye":         ["ophthalmology"],
+    "ophthal":     ["ophthalmology"],
+    "bone":        ["orthopedics"],
+    "joint":       ["orthopedics"],
+    "ortho":       ["orthopedics"],
+    "surgery":     ["surgery"],
+    "surgical":    ["surgery"],
+    "icu":         ["critical care", "icu"],
+    "critical":    ["critical care"],
+    "child":       ["pediatrics"],
+    "pediatric":   ["pediatrics"],
+}
+
+
+def _is_desert_query(query: str) -> bool:
+    words = set(query.lower().split())
+    return bool(words & _DESERT_KEYWORDS)
+
+
+def _extract_specialty_filters(query: str) -> list[str]:
+    """Return a list of specialty keyword patterns to filter desert_analysis on."""
+    words = query.lower().split()
+    patterns = []
+    for w in words:
+        for key, specialties in _SPECIALTY_MAP.items():
+            if w.startswith(key):
+                patterns.extend(specialties)
+    return list(dict.fromkeys(patterns))  # dedupe, preserve order
+
+
+@mlflow.trace(name="query_desert")
+def query_desert(query: str) -> dict:
+    """
+    Query workspace.gold.desert_analysis and state_summary to answer
+    'which states lack / have no X' style questions.
+    Returns a dict compatible with query_healthcare() output format.
+    """
+    chain_of_thought = []
+    t0 = time.time()
+
+    specialty_filters = _extract_specialty_filters(query)
+
+    chain_of_thought.append({
+        "step":      1,
+        "action":    "Desert query detected",
+        "detail":    f"Routing to medical desert analysis. Specialty focus: {specialty_filters or 'all'}",
+        "timing_ms": round((time.time() - t0) * 1000),
+        "metadata":  {"specialty_filters": specialty_filters, "query": query},
+    })
+
+    t0 = time.time()
+
+    # Build specialty WHERE clause
+    if specialty_filters:
+        specialty_conditions = " OR ".join(
+            f"LOWER(d.specialty) LIKE '%{sp}%'" for sp in specialty_filters
+        )
+        specialty_clause = f"AND ({specialty_conditions})"
+    else:
+        specialty_clause = ""
+
+    desert_sql = f"""
+        SELECT
+            d.state,
+            d.specialty,
+            d.specialty_facility_count  AS facility_count,
+            d.total_facilities,
+            d.desert_severity,
+            d.severity_label,
+            d.action,
+            d.centroid_lat AS lat,
+            d.centroid_lng AS lng
+        FROM workspace.gold.desert_analysis d
+        WHERE 1=1
+        {specialty_clause}
+        ORDER BY d.desert_severity DESC
+        LIMIT 50
+    """
+
+    state_sql = """
+        SELECT
+            state,
+            max_desert_severity,
+            overall_severity_label,
+            critical_specialty_count,
+            total_facilities,
+            centroid_lat AS lat,
+            centroid_lng AS lng
+        FROM workspace.gold.state_summary
+        ORDER BY max_desert_severity DESC
+        LIMIT 30
+    """
+
+    desert_df = spark.sql(desert_sql).toPandas()
+    state_df  = spark.sql(state_sql).toPandas()
+
+    chain_of_thought.append({
+        "step":      2,
+        "action":    "Desert analysis queried",
+        "detail":    f"Found {len(desert_df)} state-specialty gaps. "
+                     f"{len(state_df)} states in summary.",
+        "timing_ms": round((time.time() - t0) * 1000),
+        "metadata":  {
+            "rows_returned":    len(desert_df),
+            "specialty_filter": specialty_filters or "all",
+        },
+    })
+
+    # Format rows as pseudo-results so the frontend can render them as cards
+    results = []
+    for _, row in desert_df.iterrows():
+        severity  = str(row.get("severity_label", "")).upper()
+        state     = str(row.get("state", ""))
+        specialty = str(row.get("specialty", ""))
+        count     = int(row.get("facility_count", 0))
+        total     = int(row.get("total_facilities", 0))
+        score     = float(row.get("desert_severity", 0))
+        action    = str(row.get("action", ""))
+
+        # Trust score inverted — high desert severity = low coverage = low "trust"
+        display_trust = round(max(0, 100 - score), 1)
+
+        tags = [{"label": f"Desert: {severity}", "warn": severity in ("CRITICAL", "HIGH")}]
+        if count == 0:
+            tags.append({"label": "Zero facilities", "warn": True})
+        tags.append({"label": specialty, "warn": False})
+
+        results.append({
+            "name":             f"{state} — {specialty}",
+            "state":            state,
+            "city":             "",
+            "facility_type":    "Desert Zone",
+            "trust_score":      display_trust,
+            "trust_score_display": display_trust,
+            "confidence":       "high",
+            "citation":         action or f"Only {count} of {total} expected facilities present",
+            "key_capabilities": [],
+            "has_icu":          False,
+            "has_emergency":    False,
+            "has_24_7":         False,
+            "tags":             tags,
+            "validation_verdict": "NOT_VALIDATED",
+            "self_corrected":   False,
+            "desert_severity":  score,
+            "is_desert_result": True,
+            "latitude":         float(row.get("lat", 20.5)),
+            "longitude":        float(row.get("lng", 78.9)),
+        })
+
+    chain_of_thought.append({
+        "step":      3,
+        "action":    "Results formatted",
+        "detail":    f"Top gap: {results[0]['name']} (severity score {results[0]['desert_severity']:.0f}/100)" if results else "No gaps found",
+        "timing_ms": 0,
+        "metadata":  {"results_count": len(results)},
+    })
+
+    return {
+        "results":          results,
+        "chain_of_thought": chain_of_thought,
+        "parsed_query":     {"search_text": query, "specialties": specialty_filters},
+        "total_found":      len(results),
+        "validation":       [],
+        "is_desert_query":  True,
+        "state_summary":    state_df.to_dict("records"),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # MAIN ORCHESTRATOR
 # ═══════════════════════════════════════════════════════════════
 
@@ -522,6 +727,10 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
 
     Returns dict with results, chain_of_thought, validation, total_found.
     """
+    # Route desert / gap queries to the desert analysis path
+    if spark is not None and _is_desert_query(query):
+        return query_desert(query)
+
     chain_of_thought = []
 
     with mlflow.start_run(run_name=f"query_{query[:30]}"):

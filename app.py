@@ -79,10 +79,72 @@ def format_for_frontend(agent_response: dict, query: str) -> dict:
     chain       = agent_response.get("chain_of_thought", [])
     total_found = agent_response.get("total_found", 0)
     validations = agent_response.get("validation", [])
+    is_desert   = agent_response.get("is_desert_query", False)
+
+    # ── Desert query path ────────────────────────────────────────
+    if is_desert:
+        if not results:
+            answer = "No medical desert data found for your query. The desert analysis table may not have data for this specialty."
+        else:
+            critical = [r for r in results if "CRITICAL" in r.get("name", "") or
+                        any("CRITICAL" in t.get("label","") for t in r.get("tags",[]))]
+            top_states = list(dict.fromkeys(r["state"] for r in results[:8]))
+            specialty_label = results[0]["name"].split("—")[-1].strip() if results else "this specialty"
+            answer = (
+                f"Found {len(results)} state-specialty gaps in our desert analysis. "
+                f"Most underserved states for {specialty_label}: {', '.join(top_states[:5])}. "
+                f"{len(critical)} zone(s) classified as CRITICAL — "
+                f"meaning fewer than 10% of expected facilities are present."
+            )
+
+        frontend_results = []
+        for r in results:
+            frontend_results.append({
+                "name":             r.get("name", "Unknown"),
+                "location":         r.get("state", ""),
+                "trust":            r.get("trust_score_display", 0),
+                "type":             "Desert Zone",
+                "tags":             r.get("tags", []),
+                "citation":         r.get("citation", "")[:200],
+                "phone":            None,
+                "pin_code":         None,
+                "latitude":         r.get("latitude"),
+                "longitude":        r.get("longitude"),
+                "validation_note":  "",
+                "correction_note":  "",
+                "trust_breakdown":  {},
+                "source_text":      "",
+                "chain_of_thought": chain,
+            })
+
+        desert_insight = (
+            "These results come from our medical desert analysis — they show states where "
+            "a specialty has critically low facility coverage. "
+            "See the Map & Deserts view for a geographic heatmap."
+        )
+
+        return {
+            "answer":           answer,
+            "results":          frontend_results,
+            "desert_insight":   desert_insight,
+            "chain_of_thought": chain,
+            "trace": {
+                "records_searched": total_found,
+                "candidates":       total_found,
+                "avg_trust":        0,
+                "tokens":           0,
+                "steps":            len(chain),
+                "verified":         0,
+                "disputed":         0,
+                "self_corrected":   0,
+            }
+        }
+
+    # ── Facility query path (normal) ─────────────────────────────
 
     # Build answer summary
     if not results:
-        answer = f"No facilities found matching your query. Try broadening your search criteria."
+        answer = "No facilities found matching your query. Try broadening your search criteria."
     else:
         top = results[0]
         state_str = top.get("state", "India")
@@ -96,10 +158,8 @@ def format_for_frontend(agent_response: dict, query: str) -> dict:
     # Build result cards in format index.html expects
     frontend_results = []
     for r in results:
-        # Build tags from availability flags
         tags = []
 
-        # Validation verdict tag
         verdict = r.get("validation_verdict", "NOT_VALIDATED")
         if verdict == "VERIFIED":
             tags.append({"label": "✅ Verified", "warn": False})
@@ -108,7 +168,6 @@ def format_for_frontend(agent_response: dict, query: str) -> dict:
         if r.get("self_corrected"):
             tags.append({"label": "🔄 Self-corrected", "warn": False})
 
-        # Clinical flags
         if r.get("has_icu"):
             tags.append({"label": "ICU", "warn": False})
         if r.get("has_emergency"):
@@ -116,17 +175,13 @@ def format_for_frontend(agent_response: dict, query: str) -> dict:
         if r.get("has_24_7"):
             tags.append({"label": "24/7", "warn": False})
 
-        # Confidence tag
-        confidence = r.get("confidence", "")
-        if confidence == "low":
+        if r.get("confidence", "") == "low":
             tags.append({"label": "Low data quality", "warn": True})
 
-        # Contradiction warning
         contradictions = r.get("contradictions", [])
         if contradictions and len(contradictions) > 0:
             tags.append({"label": f"⚠ {len(contradictions)} contradiction(s)", "warn": True})
 
-        # Capability tags (first 2)
         caps = r.get("key_capabilities", [])
         for cap in caps[:2]:
             tags.append({"label": cap[:25], "warn": False})
@@ -149,15 +204,7 @@ def format_for_frontend(agent_response: dict, query: str) -> dict:
             "chain_of_thought": chain,
         })
 
-    # Desert insight — check if query is about gaps
     desert_insight = None
-    query_lower = query.lower()
-    if any(word in query_lower for word in ["desert", "gap", "missing", "no facility", "lack"]):
-        desert_insight = (
-            "Based on our desert analysis: Nagaland, Ladakh, Meghalaya, Sikkim, and Mizoram "
-            "have ZERO verified facilities for all 8 high-acuity specialties. "
-            "See the map view for full desert heatmap."
-        )
 
     # Trace stats for the UI stats bar
     trust_scores = [r.get("trust_score", 0) for r in results if r.get("trust_score")]

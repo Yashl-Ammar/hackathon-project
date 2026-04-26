@@ -505,7 +505,7 @@ const BACKEND_URL = window.BACKEND_URL || '';
 
 async function loadAllData() {
   try {
-    const desertRes = await fetch(BACKEND_URL + '/deserts');
+    const desertRes = await fetch(BACKEND_URL + '/deserts/data');
     const desertJson = await desertRes.json();
     
     DESERT_DATA = (desertJson.deserts || []).map(function(d) {

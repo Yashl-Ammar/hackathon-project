@@ -40,13 +40,14 @@ app.add_middleware(
 
 # ── Import query agent module ─────────────────────────────────
 try:
-    from query_agent import query_healthcare, spark
-    from pyspark.sql import functions as F
-    SPARK_AVAILABLE = True
-    print("Query agent and Spark loaded successfully")
+    from query_agent import query_healthcare, spark, deploy_client
+    SPARK_AVAILABLE = spark is not None
+    print(f"Query agent loaded. Spark: {SPARK_AVAILABLE}")
 except Exception as e:
     SPARK_AVAILABLE = False
     print(f"Query agent import error: {e}")
+    def query_healthcare(query, num_results=10, verbose=False):
+        raise RuntimeError(f"Query agent not available: {e}")
 
 # ── Request/Response models ───────────────────────────────────
 
@@ -327,8 +328,32 @@ def map_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/deserts", response_class=HTMLResponse)
+def serve_deserts_page():
+    with open("map.html", "r") as f:
+        return f.read()
 
-@app.get("/deserts")
+@app.get("/explorer", response_class=HTMLResponse)
+def serve_explorer():
+    with open("index.html", "r") as f:
+        return f.read()
+
+@app.get("/map.html", response_class=HTMLResponse)
+def serve_map_html():
+    with open("map.html", "r") as f:
+        return f.read()
+
+@app.get("/deserts.html", response_class=HTMLResponse)
+def serve_deserts_html():
+    with open("map.html", "r") as f:
+        return f.read()
+
+@app.get("/explorer.html", response_class=HTMLResponse)
+def serve_explorer_html():
+    with open("index.html", "r") as f:
+        return f.read()
+
+@app.get("/deserts/data")
 def desert_data(state: Optional[str] = None, specialty: Optional[str] = None):
     """
     Returns medical desert analysis.

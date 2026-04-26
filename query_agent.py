@@ -145,9 +145,17 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     req_icu              = parsed_query.get("requires_icu")
     req_emerg            = parsed_query.get("requires_emergency")
     req_dialysis         = parsed_query.get("requires_dialysis")
-    req_contradictions   = parsed_query.get("requires_contradictions")
-    search_text          = parsed_query.get("search_text") or ""
-    specialties          = parsed_query.get("specialties") or []
+    raw_query   = parsed_query.get("_raw_query", "").lower()
+    search_text = parsed_query.get("search_text") or ""
+    specialties = parsed_query.get("specialties") or []
+
+    # Keyword fallback — detect contradictions intent even if LLM didn't set the flag
+    _CONTRADICTION_TRIGGERS = {"contradiction", "contradictions", "dispute", "disputed", "discrepancy", "claiming"}
+    req_contradictions = (
+        parsed_query.get("requires_contradictions")
+        or bool(_CONTRADICTION_TRIGGERS & set(raw_query.split()))
+        or bool(_CONTRADICTION_TRIGGERS & set(search_text.lower().split()))
+    )
 
     state_clause         = f"AND s.address_stateOrRegion LIKE '%{state}%'"   if state         else ""
     city_clause          = f"AND s.address_city LIKE '%{city}%'"             if city          else ""
@@ -518,11 +526,19 @@ Only include claims with EXPLICIT evidence. Return ONLY the JSON."""
 # DESERT / GAP QUERY PATH
 # ═══════════════════════════════════════════════════════════════
 
-_DESERT_KEYWORDS = {
-    "desert", "deserts", "gap", "gaps", "underserved", "no facility", "no facilities",
-    "lack", "lacking", "missing", "absent", "unavailable", "shortage", "shortages",
-    "without", "unserved", "deprived", "coverage", "uncovered",
-}
+# Ordered from most-specific to least-specific — checked as substrings
+_DESERT_KEYWORDS = [
+    # "which/what states have/had no X" patterns
+    "states have no", "states with no", "states lack", "states without",
+    "states don't have", "states do not have", "states missing",
+    # explicit absence of a named facility type
+    "no dialysis", "no icu", "no emergency", "no hospital", "no centre", "no center",
+    "no psychiatric", "no cancer", "no maternity", "no trauma",
+    # general desert/gap vocabulary
+    "desert", "gap in", "underserved", "no facility", "no facilities",
+    "lack of", "lacking", "shortage of", "shortages",
+    "absent", "unavailable", "unserved", "uncovered",
+]
 
 # Map common clinical phrases → specialty keywords to search in desert_analysis table
 _SPECIALTY_MAP = {
@@ -557,8 +573,8 @@ _SPECIALTY_MAP = {
 
 
 def _is_desert_query(query: str) -> bool:
-    words = set(query.lower().split())
-    return bool(words & _DESERT_KEYWORDS)
+    q = query.lower()
+    return any(kw in q for kw in _DESERT_KEYWORDS)
 
 
 def _extract_specialty_filters(query: str) -> list[str]:
@@ -739,6 +755,7 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
         # Step 1 — Parse
         t0 = time.time()
         parsed = parse_query(query)
+        parsed["_raw_query"] = query  # carry raw query for keyword fallbacks in hybrid_search
         mlflow.log_dict(parsed, "parsed_query.json")
         chain_of_thought.append({
             "step":      1,

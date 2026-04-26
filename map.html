@@ -405,10 +405,13 @@
       </select>
       <select id="specialtyFilter" onchange="applyFilters()">
         <option value="">All Specialties</option>
-        <option>Emergency Trauma</option><option>Oncology</option>
-        <option>Dialysis / Nephrology</option><option>Neonatal ICU</option>
-        <option>Cardiology</option><option>Mental Health</option>
-        <option>Obstetrics</option>
+        <option value="emergency|trauma|casualty">Emergency Trauma</option>
+        <option value="oncology|cancer|chemotherapy">Oncology</option>
+        <option value="dialysis|nephrology|kidney|renal">Dialysis / Nephrology</option>
+        <option value="neonatal|nicu|paediatric icu">Neonatal ICU</option>
+        <option value="cardiology|cardiac|heart">Cardiology</option>
+        <option value="mental health|psychiatry|psychology">Mental Health</option>
+        <option value="obstetrics|gynaecology|maternity|delivery">Obstetrics</option>
       </select>
       <div class="trust-row">
         <span>Min Trust Score</span>
@@ -519,6 +522,7 @@ async function loadAllData() {
     FACILITIES_DATA = facilityJson.facilities || [];
 
     drawFacilities(FACILITIES_DATA);
+    updateFacilityVisibility();
     drawDeserts();
     drawClusters();
 
@@ -723,10 +727,7 @@ function toggleLayer(name) {
   } else if (name === 'clusters') {
     if (layers[name]) { drawClusters(); map.addLayer(clusterLayer); } else map.removeLayer(clusterLayer);
   } else if (name === 'heatmap') {
-    // simple visual indicator only
-    if (layers[name]) {
-      document.getElementById('heatLegend').style.display = 'block';
-    }
+    drawHeatmap(layers[name]);
   }
 }
 
@@ -750,26 +751,48 @@ function applyFilters() {
   const state     = document.getElementById('stateFilter').value;
   const specialty = document.getElementById('specialtyFilter').value;
   const minTrust  = parseInt(document.getElementById('trustSlider').value);
+  const keywords  = specialty ? specialty.toLowerCase().split('|') : [];
 
   let filtered = FACILITIES_DATA.filter(f => {
     if (state && f.state !== state) return false;
-    if (specialty) {
-      const kw = specialty.toLowerCase();
-      if (!f.specialties.some(s => s.toLowerCase().includes(kw.split(' ')[0]))) return false;
+    if (keywords.length) {
+      const text = f.specialties.join(' ').toLowerCase() + ' ' + (f.citation || '').toLowerCase();
+      if (!keywords.some(kw => text.includes(kw.trim()))) return false;
     }
     if (f.trust < minTrust) return false;
     return true;
   });
 
   drawFacilities(filtered);
+  updateFacilityVisibility();
   document.getElementById('visibleCount').textContent = filtered.length;
   const avg = filtered.length ? Math.round(filtered.reduce((s,f) => s+f.trust, 0) / filtered.length) : 0;
   document.getElementById('avgTrust').textContent = avg;
   document.getElementById('highTrust').textContent = filtered.filter(f => f.trust >= 70).length;
 }
 
+// ─── TRUST HEATMAP ───
+let heatmapLayer = null;
+function drawHeatmap(on) {
+  if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
+  if (!on) return;
+  const group = L.layerGroup();
+  FACILITIES_DATA.forEach(f => {
+    const color = getTrustColor(f.trust);
+    L.circleMarker([f.lat, f.lng], {
+      radius: 14,
+      color: 'transparent',
+      fillColor: color,
+      fillOpacity: 0.13,
+      renderer: canvasRenderer,
+    }).addTo(group);
+  });
+  heatmapLayer = group;
+  map.addLayer(heatmapLayer);
+}
+
 // ─── ZOOM-BASED FACILITY VISIBILITY ───
-const FACILITY_MIN_ZOOM = 7;
+const FACILITY_MIN_ZOOM = 5;
 function updateFacilityVisibility() {
   if (!layers.facilities) return;
   if (map.getZoom() >= FACILITY_MIN_ZOOM) {

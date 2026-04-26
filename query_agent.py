@@ -16,6 +16,7 @@ Functions:
 """
 
 import json
+import time
 import mlflow
 import mlflow.deployments
 
@@ -46,6 +47,7 @@ except Exception as e:
     deploy_client = None
 
 # ── LLM helper ────────────────────────────────────────────────
+@mlflow.trace(span_type="LLM", name="llm_call")
 def _call_llm(messages: list, max_tokens: int = 800) -> str:
     """Call LLM and return raw text response."""
     response = deploy_client.predict(
@@ -104,6 +106,7 @@ PARSER_SCHEMA = {
     "search_text":       "Core clinical search terms for semantic search"
 }
 
+@mlflow.trace(span_type="LLM", name="parse_query")
 def parse_query(query: str) -> dict:
     """Parse natural language query into structured filters. LLM call #1."""
     prompt = f"""Parse this healthcare facility search query for India:
@@ -127,6 +130,7 @@ Return ONLY the JSON object."""
 # STEP 2 — HYBRID SEARCH
 # ═══════════════════════════════════════════════════════════════
 
+@mlflow.trace(name="hybrid_search")
 def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     """
     SQL search against Gold + Silver tables.
@@ -195,6 +199,7 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
 # STEP 3 — FORMAT RESULTS WITH CITATIONS
 # ═══════════════════════════════════════════════════════════════
 
+@mlflow.trace(name="format_results")
 def format_results(candidates: list, original_query: str) -> list:
     """Format results with row-level citations from source text."""
     formatted = []
@@ -289,6 +294,7 @@ supported by the raw facility text.
 Be strict — only confirm claims EXPLICITLY stated in the text.
 Return ONLY a valid JSON object. No explanation, no markdown."""
 
+@mlflow.trace(span_type="LLM", name="validate_top_results")
 def validate_top_results(results: list) -> list:
     """Batch validate top 5 results in one LLM call. LLM call #2."""
     if not results:
@@ -400,6 +406,7 @@ def check_medical_standards(source_text: str, claims: dict) -> dict:
     return results
 
 
+@mlflow.trace(span_type="LLM", name="re_extract_with_feedback")
 def re_extract_with_feedback(source_text: str, facility_name: str,
                              original_claims: dict, validator_note: str) -> dict:
     """Re-extract with validator feedback. LLM call #3 — only for DISPUTED results."""
@@ -463,6 +470,7 @@ Only include claims with EXPLICIT evidence. Return ONLY the JSON."""
 # MAIN ORCHESTRATOR
 # ═══════════════════════════════════════════════════════════════
 
+@mlflow.trace(name="query_healthcare")
 def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -> dict:
     """
     Full agentic pipeline:
@@ -481,25 +489,43 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
         mlflow.log_param("query", query)
 
         # Step 1 — Parse
+        t0 = time.time()
         parsed = parse_query(query)
         mlflow.log_dict(parsed, "parsed_query.json")
         chain_of_thought.append({
-            "step":   1,
-            "action": "Query parsed",
-            "detail": f"State: {parsed.get('state') or 'any'} | "
-                      f"ICU: {parsed.get('requires_icu')} | "
-                      f"Emergency: {parsed.get('requires_emergency')} | "
-                      f"Search: '{parsed.get('search_text')}'"
+            "step":      1,
+            "action":    "Query parsed",
+            "detail":    f"State: {parsed.get('state') or 'any'} | "
+                         f"ICU: {parsed.get('requires_icu')} | "
+                         f"Emergency: {parsed.get('requires_emergency')} | "
+                         f"Search: '{parsed.get('search_text')}'",
+            "timing_ms": round((time.time() - t0) * 1000),
+            "metadata":  {
+                "state":               parsed.get("state") or "any",
+                "specialties":         parsed.get("specialties") or [],
+                "requires_icu":        parsed.get("requires_icu"),
+                "requires_emergency":  parsed.get("requires_emergency"),
+                "requires_24_7":       parsed.get("requires_24_7"),
+                "search_text":         parsed.get("search_text"),
+            }
         })
 
         # Step 2 — Search
+        t0 = time.time()
         candidates = hybrid_search(parsed, num_results=num_results * 2)
         mlflow.log_metric("candidates_found", len(candidates))
         chain_of_thought.append({
-            "step":   2,
-            "action": "Hybrid search complete",
-            "detail": f"SQL filters applied across 9,253 enriched records — "
-                      f"{len(candidates)} facilities matched"
+            "step":      2,
+            "action":    "Hybrid search complete",
+            "detail":    f"SQL filters applied across 9,253 enriched records — "
+                         f"{len(candidates)} facilities matched",
+            "timing_ms": round((time.time() - t0) * 1000),
+            "metadata":  {
+                "candidates_found": len(candidates),
+                "filters": {k: parsed.get(k) for k in
+                    ("state", "city", "facility_type", "requires_icu", "requires_emergency", "requires_dialysis")
+                    if parsed.get(k)},
+            }
         })
 
         if not candidates:
@@ -507,33 +533,52 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
                     "parsed_query": parsed, "total_found": 0, "validation": []}
 
         # Step 3 — Format
+        t0 = time.time()
         results = format_results(candidates[:num_results], query)
         mlflow.log_metric("results_returned", len(results))
         if results:
             chain_of_thought.append({
-                "step":   3,
-                "action": "Results ranked by trust score",
-                "detail": f"Top result: '{results[0]['name']}' "
-                          f"(trust: {results[0]['trust_score']}, "
-                          f"confidence: {results[0]['confidence']})"
+                "step":      3,
+                "action":    "Results ranked by trust score",
+                "detail":    f"Top result: '{results[0]['name']}' "
+                             f"(trust: {results[0]['trust_score']}, "
+                             f"confidence: {results[0]['confidence']})",
+                "timing_ms": round((time.time() - t0) * 1000),
+                "metadata":  {
+                    "results_count": len(results),
+                    "top_result":    results[0]["name"],
+                    "top_trust":     results[0]["trust_score"],
+                    "top_confidence":results[0]["confidence"],
+                    "top_location":  f"{results[0].get('city', '')}, {results[0].get('state', '')}",
+                }
             })
 
         # Step 4 — Validate
+        t0 = time.time()
         validations    = validate_top_results(results[:5])
         verdicts       = [v["overall_verdict"] for v in validations]
         verified_count = verdicts.count("VERIFIED")
         disputed_count = verdicts.count("DISPUTED")
         mlflow.log_metric("results_validated", len(validations))
         chain_of_thought.append({
-            "step":   4,
-            "action": "Validator agent complete",
-            "detail": f"Checked top {len(validations)} against source text — "
-                      f"{verified_count} VERIFIED, {disputed_count} DISPUTED"
+            "step":      4,
+            "action":    "Validator agent complete",
+            "detail":    f"Checked top {len(validations)} against source text — "
+                         f"{verified_count} VERIFIED, {disputed_count} DISPUTED",
+            "timing_ms": round((time.time() - t0) * 1000),
+            "metadata":  {
+                "verdicts": {v["facility_name"]: v["overall_verdict"] for v in validations},
+                "verified": verified_count,
+                "disputed": disputed_count,
+                "insufficient": verdicts.count("INSUFFICIENT_TEXT"),
+            }
         })
 
         # Step 5 — Self-correction
+        t0 = time.time()
         validation_map  = {v["facility_name"]: v for v in validations}
         corrected_count = 0
+        corrected_names = []
 
         for r in results:
             v       = validation_map.get(r["name"], {})
@@ -562,6 +607,8 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
                 if corrected.get("confidence") == "low":
                     r["confidence"] = "low"
                 corrected_count += 1
+                if corrected.get("self_corrected"):
+                    corrected_names.append(r["name"])
             else:
                 r["standards_check"] = check_medical_standards(
                     r.get("source_text", ""),
@@ -588,10 +635,16 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
                 r["trust_score_warning"] = None
 
         chain_of_thought.append({
-            "step":   5,
-            "action": "Self-correction loop complete",
-            "detail": f"{corrected_count} result(s) re-extracted with validator feedback. "
-                      f"Medical standards check applied to all results."
+            "step":      5,
+            "action":    "Self-correction loop complete",
+            "detail":    f"{corrected_count} result(s) re-extracted with validator feedback. "
+                         f"Medical standards check applied to all results.",
+            "timing_ms": round((time.time() - t0) * 1000),
+            "metadata":  {
+                "corrected_count": corrected_count,
+                "corrected":       corrected_names,
+                "standards_checked": len(results),
+            }
         })
 
         mlflow.log_metric("self_corrected_count", corrected_count)

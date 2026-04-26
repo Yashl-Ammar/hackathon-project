@@ -155,20 +155,40 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
     emerg_clause    = "AND (g.extracted_availability LIKE '%\"has_emergency\": true%' OR g.extracted_availability LIKE '%\"has_emergency\":true%')" if req_emerg else ""
     dialysis_clause = "AND (CAST(s.specialties AS STRING) LIKE '%nephrology%' OR CAST(s.specialties AS STRING) LIKE '%dialysis%')" if req_dialysis else ""
 
-    # Text search: use significant words from search_text + specialties
-    # Each word must appear somewhere in the facility's searchable_text or capabilities
-    text_terms = [w for w in search_text.lower().split() if len(w) > 3]
-    for sp in specialties[:3]:
-        text_terms += [w for w in sp.lower().split() if len(w) > 3]
-    text_terms = list(dict.fromkeys(text_terms))[:6]  # dedupe, cap at 6 terms
+    # Generic healthcare words that match everything — exclude from keyword filter
+    _STOP_WORDS = {
+        "care", "clinic", "clinics", "hospital", "hospitals", "medical", "health",
+        "centre", "center", "centers", "services", "service", "department", "unit",
+        "find", "need", "want", "best", "good", "near", "india", "with", "that",
+        "have", "their", "from", "this", "show", "give", "list", "looking",
+    }
+
+    # Collect meaningful terms: min length 3 (catches "eye", "icu", "ent"), skip stop words
+    text_terms = [w for w in search_text.lower().split() if len(w) >= 3 and w not in _STOP_WORDS]
+    for sp in specialties[:4]:
+        text_terms += [w for w in sp.lower().split() if len(w) >= 3 and w not in _STOP_WORDS]
+    text_terms = list(dict.fromkeys(text_terms))[:8]  # dedupe, cap at 8 terms
+
     if text_terms:
+        # Build per-term match flags for relevance scoring
+        relevance_parts = []
+        for t in text_terms:
+            relevance_parts.append(
+                f"(CASE WHEN s.searchable_text LIKE '%{t}%' OR g.extracted_capabilities LIKE '%{t}%' OR CAST(s.specialties AS STRING) LIKE '%{t}%' THEN 1 ELSE 0 END)"
+            )
+        relevance_expr = " + ".join(relevance_parts)
+        # At least one term must match
         text_conditions = " OR ".join(
-            f"s.searchable_text LIKE '%{t}%' OR g.extracted_capabilities LIKE '%{t}%'"
+            f"s.searchable_text LIKE '%{t}%' OR g.extracted_capabilities LIKE '%{t}%' OR CAST(s.specialties AS STRING) LIKE '%{t}%'"
             for t in text_terms
         )
-        text_clause = f"AND ({text_conditions})"
+        text_clause    = f"AND ({text_conditions})"
+        relevance_col  = f"({relevance_expr}) AS relevance_score"
+        order_by       = "relevance_score DESC, g.trust_score DESC"
     else:
-        text_clause = ""
+        text_clause   = ""
+        relevance_col = "0 AS relevance_score"
+        order_by      = "g.trust_score DESC"
 
     query = f"""
         SELECT
@@ -192,7 +212,8 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
             g.extracted_staff,
             g.extracted_equipment,
             g.contradictions,
-            g.extracted_bed_count
+            g.extracted_bed_count,
+            {relevance_col}
         FROM {GOLD_TABLE} g
         JOIN {SILVER_TABLE} s ON g.name = s.name
         WHERE g.trust_score IS NOT NULL
@@ -204,7 +225,7 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
         {emerg_clause}
         {dialysis_clause}
         {text_clause}
-        ORDER BY g.trust_score DESC
+        ORDER BY {order_by}
         LIMIT 100
     """
 

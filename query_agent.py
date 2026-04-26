@@ -18,7 +18,6 @@ Functions:
 import json
 import mlflow
 import mlflow.deployments
-from pyspark.sql import SparkSession
 
 # ── Config ────────────────────────────────────────────────────
 GOLD_TABLE   = "workspace.gold.facilities_enriched"

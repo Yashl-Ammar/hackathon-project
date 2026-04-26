@@ -16,6 +16,7 @@ Functions:
 """
 
 import json
+import os
 import mlflow
 import mlflow.deployments
 
@@ -25,13 +26,14 @@ SILVER_TABLE = "workspace.silver.facilities_clean"
 LLM_ENDPOINT = "databricks-meta-llama-3-3-70b-instruct"
 
 # ── Spark + MLflow setup ──────────────────────────────────────
-# ── Spark + MLflow setup ──────────────────────────────────────
 try:
     from pyspark.sql import SparkSession
+    warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID", "")
     spark = SparkSession.builder \
         .config("spark.databricks.service.client.enabled", "true") \
+        .config("spark.databricks.sql.warehouse.id", warehouse_id) \
         .getOrCreate()
-    print("Spark session created")
+    print(f"Spark session created with warehouse: {warehouse_id}")
 except Exception as e:
     print(f"Spark error: {e}")
     spark = None

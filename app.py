@@ -28,8 +28,25 @@ import tempfile
 from contextlib import asynccontextmanager
 
 # OpenAI client for Whisper transcription (voice input)
-# Set your key here OR via the OPENAI_API_KEY environment variable
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")   # ← paste key here if not using env var
+# Priority: env var → Databricks secret scope → empty
+def _get_openai_key() -> str:
+    # 1. Plain environment variable (set via App resource or system env)
+    key = os.environ.get("OPENAI_API_KEY", "")
+    if key:
+        return key
+    # 2. Databricks secret scope (works even when env var mapping fails)
+    try:
+        from databricks.sdk import WorkspaceClient
+        import base64
+        _w = WorkspaceClient()
+        resp = _w.secrets.get_secret(scope="caremap-secrets", key="openai-api-key")
+        if resp.value:
+            return base64.b64decode(resp.value).decode("utf-8").strip()
+    except Exception:
+        pass
+    return ""
+
+OPENAI_API_KEY = _get_openai_key()
 
 try:
     from openai import OpenAI as _OpenAI

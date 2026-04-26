@@ -524,6 +524,9 @@ async function loadAllData() {
     drawDeserts();
     drawClusters();
 
+    renderDesertList();
+    renderStateBreakdown();
+
     console.log('Loaded:', FACILITIES_DATA.length, 'facilities,', DESERT_DATA.length, 'desert entries');
   } catch(err) {
     console.error('Failed to load backend data:', err);
@@ -754,7 +757,7 @@ function applyFilters() {
   const specialty = document.getElementById('specialtyFilter').value;
   const minTrust  = parseInt(document.getElementById('trustSlider').value);
 
-  let filtered = SAMPLE_FACILITIES.filter(f => {
+  let filtered = FACILITIES_DATA.filter(f => {
     if (state && f.state !== state) return false;
     if (specialty) {
       const kw = specialty.toLowerCase();
@@ -774,8 +777,6 @@ function applyFilters() {
 // ─── INIT ───
 // Load real data from backend
 loadAllData();
-renderDesertList();
-renderStateBreakdown();
 document.getElementById('heatLegend').style.display = 'block';
 </script>
 </body>

@@ -567,32 +567,50 @@ def facility_detail(facility_name: str):
             except:
                 return default
 
+        def safe_float(val, default=0.0):
+            try:
+                v = float(val)
+                return default if v != v else v  # v != v is True only for NaN
+            except:
+                return default
+
+        def safe_int(val, default=0):
+            try:
+                v = float(val)
+                return default if v != v else int(v)
+            except:
+                return default
+
+        def safe_str(val, default=""):
+            s = str(val) if val is not None else default
+            return "" if s in ("nan", "None", "NaN") else s
+
         return JSONResponse(content={
-            "name":               str(row.get("name", "")),
-            "facility_type":      str(row.get("facilityTypeId", "")),
-            "operator_type":      str(row.get("operatorTypeId", "")),
-            "state":              str(row.get("address_stateOrRegion", "")),
-            "city":               str(row.get("address_city", "")),
-            "address":            str(row.get("address_line1", "")),
-            "pin_code":           str(row.get("address_zipOrPostcode", "")),
-            "latitude":           float(row.get("latitude") or 0),
-            "longitude":          float(row.get("longitude") or 0),
-            "phone":              str(row.get("officialPhone", "")),
-            "website":            str(row.get("officialWebsite", "")),
-            "email":              str(row.get("email", "")),
-            "year_established":   str(row.get("yearEstablished", "")),
-            "description":        str(row.get("description", "")),
+            "name":               safe_str(row.get("name")),
+            "facility_type":      safe_str(row.get("facilityTypeId")),
+            "operator_type":      safe_str(row.get("operatorTypeId")),
+            "state":              safe_str(row.get("address_stateOrRegion")),
+            "city":               safe_str(row.get("address_city")),
+            "address":            safe_str(row.get("address_line1")),
+            "pin_code":           safe_str(row.get("address_zipOrPostcode")),
+            "latitude":           safe_float(row.get("latitude")),
+            "longitude":          safe_float(row.get("longitude")),
+            "phone":              safe_str(row.get("officialPhone")),
+            "website":            safe_str(row.get("officialWebsite")),
+            "email":              safe_str(row.get("email")),
+            "year_established":   safe_str(row.get("yearEstablished")),
+            "description":        safe_str(row.get("description")),
             "specialties":        safe_json(row.get("specialties"), []),
-            "trust_score":        float(row.get("trust_score") or 0),
+            "trust_score":        safe_float(row.get("trust_score")),
             "trust_breakdown":    safe_json(row.get("trust_score_breakdown"), {}),
-            "confidence_level":   str(row.get("confidence_level", "")),
+            "confidence_level":   safe_str(row.get("confidence_level")),
             "extracted_capabilities": safe_json(row.get("extracted_capabilities"), []),
             "extracted_equipment":    safe_json(row.get("extracted_equipment"), []),
             "extracted_staff":        safe_json(row.get("extracted_staff"), {}),
             "extracted_availability": safe_json(row.get("extracted_availability"), {}),
-            "extracted_bed_count":    int(row.get("extracted_bed_count") or 0),
+            "extracted_bed_count":    safe_int(row.get("extracted_bed_count")),
             "contradictions":         safe_json(row.get("contradictions"), []),
-            "data_completeness":      float(row.get("data_completeness_score") or 0),
+            "data_completeness":      safe_float(row.get("data_completeness_score")),
         })
 
     except HTTPException:

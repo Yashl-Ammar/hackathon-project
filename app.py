@@ -42,7 +42,7 @@ app.add_middleware(
 _import_error = None
 _spark_error = None
 try:
-    from query_agent import query_healthcare, spark, deploy_client, spark_error as _spark_error
+    from query_agent import query_healthcare, spark, spark_sql, deploy_client, spark_error as _spark_error
     SPARK_AVAILABLE = spark is not None
     print(f"Query agent loaded. Spark: {SPARK_AVAILABLE}")
 except Exception as e:
@@ -51,6 +51,8 @@ except Exception as e:
     print(f"Query agent import error: {_import_error}")
     def query_healthcare(query, num_results=10, verbose=False):
         raise RuntimeError(f"Query agent not available: {_import_error}")
+    def spark_sql(q):
+        raise RuntimeError("Spark not available")
 
 # ── Request/Response models ───────────────────────────────────
 
@@ -297,7 +299,7 @@ def map_data():
         return JSONResponse(content={"facilities": [], "error": "Spark not available"})
 
     try:
-        df = spark.sql("""
+        df = spark_sql("""
             SELECT
                 g.name,
                 s.address_stateOrRegion as state,
@@ -424,10 +426,10 @@ def desert_data(state: Optional[str] = None, specialty: Optional[str] = None):
 
         desert_query += " ORDER BY d.desert_severity DESC LIMIT 200"
 
-        deserts_df = spark.sql(desert_query).toPandas()
+        deserts_df = spark_sql(desert_query).toPandas()
 
         # State summary for heatmap
-        summary_df = spark.sql("""
+        summary_df = spark_sql("""
             SELECT
                 state,
                 max_desert_severity,
@@ -484,7 +486,7 @@ def stats():
         return JSONResponse(content={})
 
     try:
-        stats = spark.sql("""
+        stats = spark_sql("""
             SELECT
                 COUNT(*)                                              as total_facilities,
                 SUM(CASE WHEN g.trust_score >= 80 THEN 1 ELSE 0 END) as high_trust_count,
@@ -530,7 +532,7 @@ def facility_detail(facility_name: str):
         # Escape single quotes in facility name
         safe_name = facility_name.replace("'", "\\'")
 
-        result = spark.sql(f"""
+        result = spark_sql(f"""
             SELECT
                 g.*,
                 s.address_stateOrRegion,

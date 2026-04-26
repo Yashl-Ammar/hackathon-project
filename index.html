@@ -686,7 +686,7 @@ function buildResultCards(results) {
     const trustColor = r.trust >= 70 ? 'var(--green)' : r.trust >= 40 ? 'var(--amber)' : 'var(--red)';
     const tags = r.tags.map(t => `<span class="tag${t.warn?' warn':''}">${t.label}</span>`).join('');
     return `
-    <div class="result-card" onclick="showFacilityDetail('${r.name}')">
+    <div class="result-card" style="cursor:${r.type === 'Desert Zone' ? 'default' : 'pointer'}" ${r.type === 'Desert Zone' ? '' : `onclick="showFacilityDetail('${r.name.replace(/'/g, "\\'")}')"`}>
       <div class="rc-header">
         <div>
           <div class="rc-name">${r.name}</div>

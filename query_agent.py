@@ -36,6 +36,37 @@ except Exception as e:
     print(f"Spark error: {spark_error}")
     spark = None
 
+_TIMEOUT_MARKERS = ("session_id is no longer usable", "INACTIVITY_TIMEOUT", "session has expired")
+
+def _is_session_timeout(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(m.lower() in msg for m in _TIMEOUT_MARKERS)
+
+def _reconnect_spark():
+    global spark, spark_error
+    try:
+        from databricks.connect import DatabricksSession
+        spark = DatabricksSession.builder.serverless(True).getOrCreate()
+        spark_error = None
+        print("Spark session reconnected after timeout")
+    except Exception as e:
+        spark_error = str(e)
+        print(f"Spark reconnect failed: {spark_error}")
+
+def spark_sql(query: str):
+    """Run a Spark SQL query, auto-reconnecting once on session timeout."""
+    global spark
+    try:
+        return spark.sql(query)
+    except Exception as e:
+        if _is_session_timeout(e):
+            print("Spark session timed out — reconnecting…")
+            _reconnect_spark()
+            if spark is None:
+                raise RuntimeError(f"Spark reconnect failed: {spark_error}") from e
+            return spark.sql(query)  # one retry after reconnect
+        raise
+
 try:
     import mlflow
     import mlflow.deployments
@@ -246,7 +277,7 @@ def hybrid_search(parsed_query: dict, num_results: int = 20) -> list:
         LIMIT 100
     """
 
-    df = spark.sql(query).toPandas()
+    df = spark_sql(query).toPandas()
     df["final_score"] = df["trust_score"]
     return df.head(num_results).to_dict("records")
 
@@ -651,8 +682,8 @@ def query_desert(query: str) -> dict:
         LIMIT 30
     """
 
-    desert_df = spark.sql(desert_sql).toPandas()
-    state_df  = spark.sql(state_sql).toPandas()
+    desert_df = spark_sql(desert_sql).toPandas()
+    state_df  = spark_sql(state_sql).toPandas()
 
     chain_of_thought.append({
         "step":      2,

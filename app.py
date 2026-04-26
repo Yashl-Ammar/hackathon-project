@@ -270,6 +270,8 @@ def map_data():
             WHERE g.trust_score IS NOT NULL
             AND s.latitude IS NOT NULL
             AND s.longitude IS NOT NULL
+            ORDER BY g.trust_score DESC
+            LIMIT 2000
         """).toPandas()
 
         facilities = []

@@ -547,6 +547,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 // ─── LAYER GROUPS ───
+const canvasRenderer = L.canvas({ padding: 0.5 });
 const facilityLayer = L.layerGroup().addTo(map);
 const desertLayer   = L.layerGroup().addTo(map);
 const clusterLayer  = L.layerGroup();
@@ -561,26 +562,18 @@ function getTrustColor(trust) {
   return '#ef4444';
 }
 
-function makeMarkerIcon(trust) {
-  const color = getTrustColor(trust);
-  return L.divIcon({
-    className: '',
-    html: `<div style="
-      width:10px;height:10px;border-radius:50%;
-      background:${color};
-      border:2px solid rgba(255,255,255,0.3);
-      box-shadow:0 0 6px ${color}88;
-    "></div>`,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5],
-  });
-}
-
 function drawFacilities(facilities) {
   facilityLayer.clearLayers();
   facilities.forEach(f => {
     const color = getTrustColor(f.trust);
-    const m = L.marker([f.lat, f.lng], { icon: makeMarkerIcon(f.trust) });
+    const m = L.circleMarker([f.lat, f.lng], {
+      radius: 5,
+      color: 'rgba(255,255,255,0.3)',
+      weight: 1,
+      fillColor: color,
+      fillOpacity: 0.85,
+      renderer: canvasRenderer,
+    });
     const tags = f.specialties.map(s => `<span class="popup-tag">${s}</span>`).join('');
     const warnings = [];
     if (!f.hasIcu && f.specialties.includes('ICU')) warnings.push('Claims ICU no evidence');
@@ -605,23 +598,26 @@ function drawFacilities(facilities) {
 // ─── DRAW DESERTS ───
 function drawDeserts() {
   desertLayer.clearLayers();
-  DESERT_DATA.forEach(d => {
-    const radius = d.severity === 'critical' ? 120000 : d.severity === 'high' ? 80000 : 50000;
-    const color  = d.severity === 'critical' ? '#ef4444' : d.severity === 'high' ? '#f97316' : '#f59e0b';
-    const circle = L.circle([d.lat, d.lng], {
+  STATES_DATA.forEach(s => {
+    const radius = s.severity === 'critical' ? 150000 : s.severity === 'high' ? 90000 : 55000;
+    const color  = s.severity === 'critical' ? '#ef4444' : s.severity === 'high' ? '#f97316' : '#f59e0b';
+    const circle = L.circle([s.lat, s.lng], {
       radius,
       color,
       fillColor: color,
-      fillOpacity: 0.12,
+      fillOpacity: 0.10,
       weight: 1.5,
-      dashArray: '4 4',
+      renderer: canvasRenderer,
     });
+    const criticalDeserts = DESERT_DATA.filter(d => d.state === s.state && d.severity === 'critical');
+    const specialtyList = [...new Set(criticalDeserts.map(d => d.specialty))].join(', ') || 'none';
     circle.bindPopup(`
-      <div class="popup-name" style="color:${color}">⚠ ${d.specialty} Desert</div>
-      <div class="popup-loc">${d.state}</div>
+      <div class="popup-name" style="color:${color}">⚠ Medical Desert</div>
+      <div class="popup-loc">${s.state}</div>
       <div style="font-size:12px;color:#8b9ab8;margin-top:6px">
-        Only <strong style="color:${color}">${d.count}</strong> verified facilities<br>
-        out of ${d.total.toLocaleString()} total in state.
+        <strong style="color:${color}">${s.critical_count}</strong> critical specialty gap${s.critical_count !== 1 ? 's' : ''}<br>
+        ${s.facilities.toLocaleString()} total facilities<br>
+        <span style="color:#a0aec0">${specialtyList}</span>
       </div>
     `);
     desertLayer.addLayer(circle);
@@ -720,7 +716,7 @@ function toggleLayer(name) {
   lt.classList.toggle('active', layers[name]);
 
   if (name === 'facilities') {
-    if (layers[name]) map.addLayer(facilityLayer); else map.removeLayer(facilityLayer);
+    if (layers[name]) updateFacilityVisibility(); else map.removeLayer(facilityLayer);
   } else if (name === 'deserts') {
     if (layers[name]) map.addLayer(desertLayer); else map.removeLayer(desertLayer);
     document.getElementById('heatLegend').style.display = layers[name] ? 'block' : 'none';
@@ -772,8 +768,19 @@ function applyFilters() {
   document.getElementById('highTrust').textContent = filtered.filter(f => f.trust >= 70).length;
 }
 
+// ─── ZOOM-BASED FACILITY VISIBILITY ───
+const FACILITY_MIN_ZOOM = 7;
+function updateFacilityVisibility() {
+  if (!layers.facilities) return;
+  if (map.getZoom() >= FACILITY_MIN_ZOOM) {
+    map.addLayer(facilityLayer);
+  } else {
+    map.removeLayer(facilityLayer);
+  }
+}
+map.on('zoomend', updateFacilityVisibility);
+
 // ─── INIT ───
-// Load real data from backend
 loadAllData();
 document.getElementById('heatLegend').style.display = 'block';
 </script>

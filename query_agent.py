@@ -16,7 +16,6 @@ Functions:
 """
 
 import json
-import os
 import mlflow
 import mlflow.deployments
 
@@ -28,13 +27,9 @@ LLM_ENDPOINT = "databricks-meta-llama-3-3-70b-instruct"
 # ── Spark + MLflow setup ──────────────────────────────────────
 spark_error = None
 try:
-    from pyspark.sql import SparkSession
-    warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID", "")
-    spark = SparkSession.builder \
-        .config("spark.databricks.service.client.enabled", "true") \
-        .config("spark.databricks.sql.warehouse.id", warehouse_id) \
-        .getOrCreate()
-    print(f"Spark session created with warehouse: {warehouse_id}")
+    from databricks.connect import DatabricksSession
+    spark = DatabricksSession.builder.getOrCreate()
+    print("Spark session created via DatabricksSession")
 except Exception as e:
     spark_error = str(e)
     print(f"Spark error: {spark_error}")

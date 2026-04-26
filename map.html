@@ -508,15 +508,34 @@ async function loadAllData() {
   // Desert data — independent fetch, always draw if available
   try {
     const desertRes  = await fetch(BACKEND_URL + '/deserts/data');
+    if (!desertRes.ok) {
+      const errBody = await desertRes.text();
+      console.error('Desert data error', desertRes.status, errBody);
+      throw new Error('Desert endpoint returned ' + desertRes.status + ': ' + errBody.slice(0, 200));
+    }
     const desertJson = await desertRes.json();
 
     DESERT_DATA = (desertJson.deserts || []).map(function(d) {
-      return { state: d.state, specialty: d.specialty, severity: (d.severity || '').toLowerCase(),
-               count: d.count, total: d.total, lat: d.lat, lng: d.lng, action: d.action };
+      return {
+        state:    d.state    || '',
+        specialty:d.specialty|| '',
+        severity: (d.severity || '').toLowerCase(),
+        count:    d.count  || 0,
+        total:    d.total  || 0,
+        lat:      d.lat    || 20.5,
+        lng:      d.lng    || 78.9,
+        action:   d.action || '',
+      };
     });
     STATES_DATA = (desertJson.state_summary || []).map(function(s) {
-      return { state: s.state, severity: (s.severity || '').toLowerCase(),
-               facilities: s.facilities, critical_count: s.critical_count || 0, lat: s.lat, lng: s.lng };
+      return {
+        state:          s.state || '',
+        severity:       (s.severity || '').toLowerCase(),
+        facilities:     s.facilities     || 0,
+        critical_count: s.critical_count || 0,
+        lat:            s.lat || 20.5,
+        lng:            s.lng || 78.9,
+      };
     });
 
     drawDeserts();

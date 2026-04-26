@@ -27,15 +27,33 @@ import threading
 from contextlib import asynccontextmanager
 
 # ── Desert data cache ────────────────────────────────────────
-_desert_cache: dict | None = None
+_desert_cache = None          # Optional[dict] — py3.9 compatible
 _desert_cache_lock = threading.Lock()
 
-def _build_desert_payload(state=None, specialty=None) -> dict:
+def _nan_int(val, default=0):
+    try:
+        v = float(val)
+        return default if v != v else int(v)   # v!=v is True only for NaN
+    except Exception:
+        return default
+
+def _nan_float(val, default=0.0):
+    try:
+        v = float(val)
+        return default if v != v else v
+    except Exception:
+        return default
+
+def _nan_str(val, default=""):
+    s = str(val) if val is not None else default
+    return default if s in ("nan", "None", "NaT") else s
+
+def _build_desert_payload(state=None, specialty=None):
     """Run the desert Spark queries and return the formatted payload dict."""
     desert_query = """
         SELECT
             d.state, d.specialty, d.specialty_facility_count,
-            d.total_facilities, d.coverage_ratio, d.desert_severity,
+            d.total_facilities, d.desert_severity,
             d.severity_label, d.action,
             d.centroid_lat AS lat, d.centroid_lng AS lng
         FROM workspace.gold.desert_analysis d
@@ -56,35 +74,35 @@ def _build_desert_payload(state=None, specialty=None) -> dict:
         ORDER BY max_desert_severity DESC
     """).toPandas()
 
-    deserts = [
-        {
-            "state":    str(r.get("state", "")),
-            "specialty":str(r.get("specialty", "")),
-            "count":    int(r.get("specialty_facility_count", 0) or 0),
-            "total":    int(r.get("total_facilities", 0) or 0),
-            "severity": str(r.get("severity_label", "")),
-            "score":    int(r.get("desert_severity", 0) or 0),
-            "action":   str(r.get("action", "")),
-            "lat":      float(r.get("lat", 20.5) or 20.5),
-            "lng":      float(r.get("lng", 78.9) or 78.9),
-        }
-        for _, r in deserts_df.iterrows()
-    ]
-    state_summary = [
-        {
-            "state":          str(r.get("state", "")),
-            "severity":       str(r.get("overall_severity_label", "")).lower(),
-            "critical_count": int(r.get("critical_specialty_count", 0) or 0),
-            "facilities":     int(r.get("total_facilities", 0) or 0),
-            "lat":            float(r.get("lat", 20.5) or 20.5),
-            "lng":            float(r.get("lng", 78.9) or 78.9),
-        }
-        for _, r in summary_df.iterrows()
-    ]
+    deserts = []
+    for _, row in deserts_df.iterrows():
+        deserts.append({
+            "state":    _nan_str(row.get("state")),
+            "specialty":_nan_str(row.get("specialty")),
+            "count":    _nan_int(row.get("specialty_facility_count")),
+            "total":    _nan_int(row.get("total_facilities")),
+            "severity": _nan_str(row.get("severity_label")),
+            "score":    _nan_int(row.get("desert_severity")),
+            "action":   _nan_str(row.get("action")),
+            "lat":      _nan_float(row.get("lat"), 20.5),
+            "lng":      _nan_float(row.get("lng"), 78.9),
+        })
+
+    state_summary = []
+    for _, row in summary_df.iterrows():
+        state_summary.append({
+            "state":          _nan_str(row.get("state")),
+            "severity":       _nan_str(row.get("overall_severity_label")).lower(),
+            "critical_count": _nan_int(row.get("critical_specialty_count")),
+            "facilities":     _nan_int(row.get("total_facilities")),
+            "lat":            _nan_float(row.get("lat"), 20.5),
+            "lng":            _nan_float(row.get("lng"), 78.9),
+        })
+
     return {
         "deserts":       deserts,
         "state_summary": state_summary,
-        "total_critical": sum(1 for d in deserts if d["severity"] == "CRITICAL"),
+        "total_critical": sum(1 for d in deserts if d["severity"].upper() == "CRITICAL"),
     }
 
 def _preload_desert_cache():

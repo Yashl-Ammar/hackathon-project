@@ -336,24 +336,9 @@ def serve_deserts_page():
     with open("map.html", "r") as f:
         return f.read()
 
-@app.get("/explorer", response_class=HTMLResponse)
-def serve_explorer():
-    with open("index.html", "r") as f:
-        return f.read()
-
 @app.get("/map.html", response_class=HTMLResponse)
 def serve_map_html():
     with open("map.html", "r") as f:
-        return f.read()
-
-@app.get("/deserts.html", response_class=HTMLResponse)
-def serve_deserts_html():
-    with open("map.html", "r") as f:
-        return f.read()
-
-@app.get("/explorer.html", response_class=HTMLResponse)
-def serve_explorer_html():
-    with open("index.html", "r") as f:
         return f.read()
 
 @app.get("/deserts/data")

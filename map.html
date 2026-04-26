@@ -331,10 +331,8 @@
     <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:4px">Intelligence</span>
   </div>
   <div class="nav-pills">
-    <a class="nav-pill" href="#">Query</a>
-    <a class="nav-pill active" href="#">Map</a>
-    <a class="nav-pill" href="#">Deserts</a>
-    <a class="nav-pill" href="#">Explorer</a>
+    <a class="nav-pill" href="/">Query</a>
+    <a class="nav-pill active" href="/map">Map &amp; Deserts</a>
   </div>
   <div class="nav-badge">
     <div class="status-dot"></div>
@@ -513,7 +511,7 @@ async function loadAllData() {
     });
 
     STATES_DATA = (desertJson.state_summary || []).map(function(s) {
-      return { state: s.state, severity: s.severity.toLowerCase(), facilities: s.facilities, lat: s.lat, lng: s.lng };
+      return { state: s.state, severity: (s.severity || '').toLowerCase(), facilities: s.facilities, critical_count: s.critical_count || 0, lat: s.lat, lng: s.lng };
     });
 
     const facilityRes = await fetch(BACKEND_URL + '/map/data');
@@ -652,11 +650,8 @@ function drawClusters() {
     const m = L.marker([s.lat, s.lng], { icon });
     m.bindPopup(`
       <div class="popup-name">${s.state}</div>
-      <div class="popup-trust">
-        <div class="popup-trust-bar"><div class="popup-trust-fill" style="width:${s.avgTrust}%;background:${getTrustColor(s.avgTrust)}"></div></div>
-        <div class="popup-trust-val" style="color:${getTrustColor(s.avgTrust)}">${s.avgTrust}</div>
-      </div>
-      <div style="font-size:12px;color:#8b9ab8">${s.facilities.toLocaleString()} facilities · ${s.deserts.length} desert types</div>
+      <div style="font-size:12px;color:${color};font-weight:600;margin-bottom:4px">${s.severity.toUpperCase()} severity</div>
+      <div style="font-size:12px;color:#8b9ab8">${s.facilities.toLocaleString()} facilities · ${s.critical_count} critical desert types</div>
     `);
     clusterLayer.addLayer(m);
   });
@@ -698,17 +693,20 @@ function renderDesertList() {
 // ─── STATE BREAKDOWN ───
 function renderStateBreakdown() {
   const el = document.getElementById('stateBreakdown');
-  const sorted = [...STATES_DATA].sort((a,b) => a.avgTrust - b.avgTrust).slice(0, 8);
+  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  const sorted = [...STATES_DATA].sort((a, b) => (severityOrder[a.severity] ?? 4) - (severityOrder[b.severity] ?? 4)).slice(0, 8);
   el.innerHTML = sorted.map(s => {
-    const color = getTrustColor(s.avgTrust);
+    const color = s.severity === 'critical' ? '#ef4444' : s.severity === 'high' ? '#f97316' : s.severity === 'medium' ? '#f59e0b' : '#22c55e';
+    const pct = Math.min(100, (s.critical_count / 8) * 100);
     return `<div style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
         <span style="color:var(--text2)">${s.state}</span>
-        <span style="color:${color};font-weight:600">${s.avgTrust}</span>
+        <span style="color:${color};font-weight:600">${s.severity.toUpperCase()}</span>
       </div>
       <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden">
-        <div style="width:${s.avgTrust}%;height:100%;background:${color};border-radius:2px;transition:width .5s"></div>
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:2px;transition:width .5s"></div>
       </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${s.critical_count} critical specialties · ${s.facilities.toLocaleString()} facilities</div>
     </div>`;
   }).join('');
 }

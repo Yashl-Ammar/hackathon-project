@@ -344,6 +344,32 @@
   .send-btn svg { width: 16px; height: 16px; }
   .input-hint { font-size: 11px; color: var(--text3); margin-top: 8px; text-align: center; }
 
+  /* ── VOICE INPUT ── */
+  .lang-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .lang-bar-label { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+  .lang-pills { display: flex; gap: 4px; }
+  .lang-pill {
+    padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); color: var(--text2);
+    background: var(--surface2); transition: all .2s; user-select: none;
+  }
+  .lang-pill:hover { border-color: var(--border2); color: var(--text); }
+  .lang-pill.active { border-color: rgba(0,212,170,0.4); color: var(--accent); background: rgba(0,212,170,0.08); }
+  .mic-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all .2s; color: var(--text2);
+  }
+  .mic-btn:hover { background: rgba(0,212,170,0.08); border-color: var(--accent); color: var(--accent); }
+  .mic-btn.recording { background: rgba(239,68,68,0.15); border-color: var(--red); color: var(--red); animation: pulse 1s infinite; }
+  .translated-note {
+    font-size: 11px; color: var(--text3); margin-top: 6px; text-align: center;
+    background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.15);
+    border-radius: 6px; padding: 4px 10px; display: none;
+  }
+
   /* ── RIGHT PANEL ── */
   .right-panel {
     width: 300px;
@@ -523,17 +549,32 @@
     </div>
 
     <div class="input-bar">
+      <div class="lang-bar">
+        <span class="lang-bar-label">Language:</span>
+        <div class="lang-pills">
+          <div class="lang-pill active" onclick="setLang('en-IN', this)">EN</div>
+          <div class="lang-pill" onclick="setLang('hi-IN', this)">हिं</div>
+          <div class="lang-pill" onclick="setLang('ur-PK', this)">اُردو</div>
+        </div>
+      </div>
       <div class="input-wrap">
         <textarea id="userInput" rows="1" placeholder="e.g. Find the nearest ICU in rural Bihar with a trust score above 60…"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
           oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+        <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Speak your query">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
+          </svg>
+        </button>
         <button class="send-btn" onclick="sendMessage()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
       </div>
-      <div class="input-hint">Shift+Enter for new line · Results include trust scores and source citations</div>
+      <div class="translated-note" id="translatedNote"></div>
+      <div class="input-hint">Shift+Enter for new line · Mic supports Hindi &amp; Urdu · Results include trust scores</div>
     </div>
   </div>
 
@@ -615,6 +656,81 @@
 
 <script>
 const OPENAI_API_KEY = "";  // ← paste your key here
+
+// ── Voice / language state ─────────────────────────────────────
+let currentLang = 'en-IN';
+let recognition  = null;
+let isRecording  = false;
+
+const LANG_PLACEHOLDERS = {
+  'en-IN': 'e.g. Find the nearest ICU in rural Bihar with a trust score above 60…',
+  'hi-IN': 'उदाहरण: बिहार में निकटतम आईसीयू खोजें…',
+  'ur-PK': 'مثال: بہار میں قریب ترین آئی سی یو تلاش کریں…',
+};
+
+function setLang(lang, el) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('userInput').placeholder = LANG_PLACEHOLDERS[lang] || LANG_PLACEHOLDERS['en-IN'];
+}
+
+function toggleMic() {
+  if (isRecording) { stopMic(); } else { startMic(); }
+}
+
+function startMic() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    appendMsg('bot', '<span style="color:var(--amber)">Speech recognition is not supported in this browser. Please use Chrome or Edge.</span>');
+    return;
+  }
+  recognition = new SpeechRecognition();
+  recognition.lang = currentLang;
+  recognition.interimResults = true;
+  recognition.continuous = false;
+
+  const micBtn = document.getElementById('micBtn');
+  const input  = document.getElementById('userInput');
+
+  recognition.onstart = () => {
+    isRecording = true;
+    micBtn.classList.add('recording');
+    const listeningText = { 'hi-IN': 'सुन रहा है…', 'ur-PK': 'سن رہا ہے…' }[currentLang] || 'Listening…';
+    input.placeholder = listeningText;
+  };
+
+  recognition.onresult = (event) => {
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    input.value = transcript;
+    input.style.height = 'auto';
+    input.style.height = input.scrollHeight + 'px';
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    input.placeholder = LANG_PLACEHOLDERS[currentLang] || LANG_PLACEHOLDERS['en-IN'];
+  };
+
+  recognition.onerror = (event) => {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    input.placeholder = LANG_PLACEHOLDERS[currentLang];
+    if (event.error !== 'no-speech') {
+      appendMsg('bot', `<span style="color:var(--red)">Microphone error: ${event.error}</span>`);
+    }
+  };
+
+  recognition.start();
+}
+
+function stopMic() {
+  if (recognition) { recognition.stop(); recognition = null; }
+}
 
 function setQuery(q) {
   document.getElementById('userInput').value = q;
@@ -756,6 +872,7 @@ async function sendMessage() {
         num_results: 10,
         state:       state || null,
         min_trust:   minTrust > 0 ? minTrust : null,
+        language:    currentLang !== 'en-IN' ? currentLang : null,
       })
     });
 
@@ -766,6 +883,15 @@ async function sendMessage() {
 
     const parsed = await response.json();
     removeTyping();
+
+    // Show translation note if backend translated the query
+    const noteEl = document.getElementById('translatedNote');
+    if (parsed.translated_query) {
+      noteEl.textContent = `Translated: "${parsed.translated_query}"`;
+      noteEl.style.display = 'block';
+    } else {
+      noteEl.style.display = 'none';
+    }
 
     if (parsed.trace) {
       document.getElementById('statRecords').textContent  = (parsed.trace.records_searched || 9253).toLocaleString();

@@ -761,8 +761,24 @@ def query_desert(query: str) -> dict:
 # MAIN ORCHESTRATOR
 # ═══════════════════════════════════════════════════════════════
 
+def translate_to_english(text: str) -> str:
+    """Translate a Hindi or Urdu query to English using the hosted LLM."""
+    messages = [
+        {"role": "system", "content": "You are a translator. Translate the given Hindi or Urdu healthcare query into clear English. Return ONLY the English translation — no explanations, no extra text."},
+        {"role": "user",   "content": text}
+    ]
+    try:
+        return _call_llm(messages, max_tokens=200).strip()
+    except Exception:
+        return text
+
+
+def _is_non_ascii(text: str) -> bool:
+    return any(ord(c) > 127 for c in text)
+
+
 @mlflow.trace(name="query_healthcare")
-def query_healthcare(query: str, num_results: int = 10, verbose: bool = False, min_trust: float = None) -> dict:
+def query_healthcare(query: str, num_results: int = 10, verbose: bool = False, min_trust: float = None, language: str = None) -> dict:
     """
     Full agentic pipeline:
     1. Parse query         (LLM #1)
@@ -773,10 +789,24 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False, m
     6. Medical standards check (rule-based)
 
     Returns dict with results, chain_of_thought, validation, total_found.
+    Accepts optional `language` ('hi-IN', 'ur-PK') to trigger auto-translation.
     """
+    # Translate Hindi/Urdu to English before the pipeline
+    original_query = query
+    needs_translation = (
+        language in ("hi-IN", "ur-PK", "hi", "ur")
+        or _is_non_ascii(query)
+    )
+    if needs_translation and spark is not None:
+        query = translate_to_english(query)
+
     # Route desert / gap queries to the desert analysis path
     if spark is not None and _is_desert_query(query):
-        return query_desert(query)
+        result = query_desert(query)
+        if needs_translation:
+            result["original_query"] = original_query
+            result["translated_query"] = query
+        return result
 
     chain_of_thought = []
 
@@ -950,10 +980,14 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False, m
         mlflow.log_dict({"chain_of_thought": chain_of_thought}, "chain_of_thought.json")
         mlflow.log_dict({"validations": validations}, "validations.json")
 
-    return {
+    out = {
         "results":          results,
         "chain_of_thought": chain_of_thought,
         "parsed_query":     parsed,
         "total_found":      len(candidates),
         "validation":       validations
     }
+    if needs_translation:
+        out["original_query"]   = original_query
+        out["translated_query"] = query
+    return out

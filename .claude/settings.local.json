@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python3 *)",
       "Bash(py -3 -c \"import ast; ast.parse\\(open\\('E:/hackathon-project/app.py', encoding='utf-8'\\).read\\(\\)\\); print\\('app.py OK'\\)\")",
-      "Bash(py -3 -c \"import ast; ast.parse\\(open\\('E:/hackathon-project/query_agent.py', encoding='utf-8'\\).read\\(\\)\\); print\\('query_agent.py OK'\\)\")"
+      "Bash(py -3 -c \"import ast; ast.parse\\(open\\('E:/hackathon-project/query_agent.py', encoding='utf-8'\\).read\\(\\)\\); print\\('query_agent.py OK'\\)\")",
+      "Bash(python *)"
     ]
   }
 }

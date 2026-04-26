@@ -160,6 +160,7 @@ class QueryRequest(BaseModel):
     num_results: Optional[int] = 10
     state: Optional[str] = None
     min_trust: Optional[float] = None
+    language: Optional[str] = None   # e.g. 'hi-IN', 'ur-PK'
 
 class FacilityResult(BaseModel):
     name: str
@@ -374,11 +375,15 @@ def query_endpoint(request: QueryRequest):
             num_results=request.num_results or 10,
             verbose=False,
             min_trust=request.min_trust,
+            language=request.language,
         )
 
         # Format for frontend
         frontend_response = format_for_frontend(agent_response, request.query)
         frontend_response["latency_ms"] = round((time.time() - start_time) * 1000)
+        if agent_response.get("translated_query"):
+            frontend_response["translated_query"] = agent_response["translated_query"]
+            frontend_response["original_query"]   = agent_response.get("original_query", request.query)
 
         return JSONResponse(content=frontend_response)
 

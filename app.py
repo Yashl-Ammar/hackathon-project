@@ -28,10 +28,13 @@ import tempfile
 from contextlib import asynccontextmanager
 
 # OpenAI client for Whisper transcription (voice input)
+# Set your key here OR via the OPENAI_API_KEY environment variable
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")   # ← paste key here if not using env var
+
 try:
     from openai import OpenAI as _OpenAI
-    _openai_client = _OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
-    WHISPER_AVAILABLE = bool(os.environ.get("OPENAI_API_KEY"))
+    _openai_client = _OpenAI(api_key=OPENAI_API_KEY)
+    WHISPER_AVAILABLE = bool(OPENAI_API_KEY)
 except Exception:
     _openai_client = None
     WHISPER_AVAILABLE = False
@@ -716,11 +719,13 @@ def facility_detail(facility_name: str):
 @app.get("/health")
 def health():
     return {
-        "status":          "ok" if not _import_error and not _spark_error else "degraded",
-        "spark_available": SPARK_AVAILABLE,
-        "import_error":    _import_error,
-        "spark_error":     _spark_error,
-        "version":         "1.0.0"
+        "status":            "ok" if not _import_error and not _spark_error else "degraded",
+        "spark_available":   SPARK_AVAILABLE,
+        "whisper_available": WHISPER_AVAILABLE,
+        "openai_key_set":    bool(os.environ.get("OPENAI_API_KEY")),
+        "import_error":      _import_error,
+        "spark_error":       _spark_error,
+        "version":           "1.0.0"
     }
 
 

@@ -762,7 +762,7 @@ def query_desert(query: str) -> dict:
 # ═══════════════════════════════════════════════════════════════
 
 @mlflow.trace(name="query_healthcare")
-def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -> dict:
+def query_healthcare(query: str, num_results: int = 10, verbose: bool = False, min_trust: float = None) -> dict:
     """
     Full agentic pipeline:
     1. Parse query         (LLM #1)
@@ -786,7 +786,10 @@ def query_healthcare(query: str, num_results: int = 10, verbose: bool = False) -
         # Step 1 — Parse
         t0 = time.time()
         parsed = parse_query(query)
-        parsed["_raw_query"] = query  # carry raw query for keyword fallbacks in hybrid_search
+        parsed["_raw_query"] = query
+        # Hard-override min_trust from frontend slider (takes precedence over LLM extraction)
+        if min_trust and min_trust > 0:
+            parsed["min_trust_score"] = min_trust
         mlflow.log_dict(parsed, "parsed_query.json")
         chain_of_thought.append({
             "step":      1,

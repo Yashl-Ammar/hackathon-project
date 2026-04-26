@@ -756,7 +756,9 @@ function applyFilters() {
   let filtered = FACILITIES_DATA.filter(f => {
     if (state && f.state !== state) return false;
     if (keywords.length) {
-      const text = f.specialties.join(' ').toLowerCase() + ' ' + (f.citation || '').toLowerCase();
+      const specs = Array.isArray(f.specialties) ? f.specialties.join(' ') : '';
+      const caps  = Array.isArray(f.capabilities) ? f.capabilities.join(' ') : '';
+      const text  = (specs + ' ' + caps + ' ' + (f.citation || '') + ' ' + (f.name || '')).toLowerCase();
       if (!keywords.some(kw => text.includes(kw.trim()))) return false;
     }
     if (f.trust < minTrust) return false;

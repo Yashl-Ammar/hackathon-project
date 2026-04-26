@@ -23,12 +23,93 @@ import json
 import time
 import os
 import sys
+import threading
+from contextlib import asynccontextmanager
+
+# ── Desert data cache ────────────────────────────────────────
+_desert_cache: dict | None = None
+_desert_cache_lock = threading.Lock()
+
+def _build_desert_payload(state=None, specialty=None) -> dict:
+    """Run the desert Spark queries and return the formatted payload dict."""
+    desert_query = """
+        SELECT
+            d.state, d.specialty, d.specialty_facility_count,
+            d.total_facilities, d.coverage_ratio, d.desert_severity,
+            d.severity_label, d.action,
+            d.centroid_lat AS lat, d.centroid_lng AS lng
+        FROM workspace.gold.desert_analysis d
+        WHERE d.desert_severity >= 60
+    """
+    if state:
+        desert_query += f" AND d.state = '{state}'"
+    if specialty:
+        desert_query += f" AND d.specialty = '{specialty}'"
+    desert_query += " ORDER BY d.desert_severity DESC LIMIT 200"
+
+    deserts_df = spark_sql(desert_query).toPandas()
+    summary_df = spark_sql("""
+        SELECT state, max_desert_severity, overall_severity_label,
+               critical_specialty_count, total_facilities,
+               centroid_lat AS lat, centroid_lng AS lng
+        FROM workspace.gold.state_summary
+        ORDER BY max_desert_severity DESC
+    """).toPandas()
+
+    deserts = [
+        {
+            "state":    str(r.get("state", "")),
+            "specialty":str(r.get("specialty", "")),
+            "count":    int(r.get("specialty_facility_count", 0) or 0),
+            "total":    int(r.get("total_facilities", 0) or 0),
+            "severity": str(r.get("severity_label", "")),
+            "score":    int(r.get("desert_severity", 0) or 0),
+            "action":   str(r.get("action", "")),
+            "lat":      float(r.get("lat", 20.5) or 20.5),
+            "lng":      float(r.get("lng", 78.9) or 78.9),
+        }
+        for _, r in deserts_df.iterrows()
+    ]
+    state_summary = [
+        {
+            "state":          str(r.get("state", "")),
+            "severity":       str(r.get("overall_severity_label", "")).lower(),
+            "critical_count": int(r.get("critical_specialty_count", 0) or 0),
+            "facilities":     int(r.get("total_facilities", 0) or 0),
+            "lat":            float(r.get("lat", 20.5) or 20.5),
+            "lng":            float(r.get("lng", 78.9) or 78.9),
+        }
+        for _, r in summary_df.iterrows()
+    ]
+    return {
+        "deserts":       deserts,
+        "state_summary": state_summary,
+        "total_critical": sum(1 for d in deserts if d["severity"] == "CRITICAL"),
+    }
+
+def _preload_desert_cache():
+    global _desert_cache
+    try:
+        print("Preloading desert cache…")
+        payload = _build_desert_payload()
+        with _desert_cache_lock:
+            _desert_cache = payload
+        print(f"Desert cache ready: {len(payload['deserts'])} desert entries, {len(payload['state_summary'])} states")
+    except Exception as e:
+        print(f"Desert preload failed (will fetch on demand): {e}")
+
+@asynccontextmanager
+async def lifespan(app):
+    if SPARK_AVAILABLE:
+        threading.Thread(target=_preload_desert_cache, daemon=True).start()
+    yield
 
 # ── App setup ────────────────────────────────────────────────
 app = FastAPI(
     title="CareMap Healthcare Intelligence API",
     description="Agentic healthcare facility search for India",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -273,7 +354,8 @@ def query_endpoint(request: QueryRequest):
         agent_response = query_healthcare(
             query=query,
             num_results=request.num_results or 10,
-            verbose=False
+            verbose=False,
+            min_trust=request.min_trust,
         )
 
         # Format for frontend
@@ -396,83 +478,28 @@ def serve_map_html():
 def desert_data(state: Optional[str] = None, specialty: Optional[str] = None):
     """
     Returns medical desert analysis.
-    Used by map.html for the desert heatmap overlay.
+    Served from in-memory cache (populated at startup) for unfiltered requests.
+    Falls back to live Spark query for filtered requests or cache misses.
     """
     if not SPARK_AVAILABLE:
         return JSONResponse(content={"deserts": [], "state_summary": []})
 
+    # Serve from cache for the common unfiltered case (map.html load)
+    if state is None and specialty is None:
+        with _desert_cache_lock:
+            cached = _desert_cache
+        if cached is not None:
+            return JSONResponse(content=cached)
+
+    # Filtered request or cache not ready yet — hit Spark directly
     try:
-        # Desert analysis by state x specialty
-        desert_query = """
-            SELECT
-                d.state,
-                d.specialty,
-                d.specialty_facility_count,
-                d.total_facilities,
-                d.coverage_ratio,
-                d.desert_severity,
-                d.severity_label,
-                d.action,
-                d.centroid_lat  as lat,
-                d.centroid_lng  as lng
-            FROM workspace.gold.desert_analysis d
-            WHERE d.desert_severity >= 60
-        """
-
-        if state:
-            desert_query += f" AND d.state = '{state}'"
-        if specialty:
-            desert_query += f" AND d.specialty = '{specialty}'"
-
-        desert_query += " ORDER BY d.desert_severity DESC LIMIT 200"
-
-        deserts_df = spark_sql(desert_query).toPandas()
-
-        # State summary for heatmap
-        summary_df = spark_sql("""
-            SELECT
-                state,
-                max_desert_severity,
-                overall_severity_label,
-                critical_specialty_count,
-                total_facilities,
-                centroid_lat as lat,
-                centroid_lng as lng
-            FROM workspace.gold.state_summary
-            ORDER BY max_desert_severity DESC
-        """).toPandas()
-
-        deserts = []
-        for _, row in deserts_df.iterrows():
-            deserts.append({
-                "state":    str(row.get("state", "")),
-                "specialty":str(row.get("specialty", "")),
-                "count":    int(row.get("specialty_facility_count", 0)),
-                "total":    int(row.get("total_facilities", 0)),
-                "severity": str(row.get("severity_label", "")),
-                "score":    int(row.get("desert_severity", 0)),
-                "action":   str(row.get("action", "")),
-                "lat":      float(row.get("lat", 20.5)),
-                "lng":      float(row.get("lng", 78.9)),
-            })
-
-        state_summary = []
-        for _, row in summary_df.iterrows():
-            state_summary.append({
-                "state":           str(row.get("state", "")),
-                "severity":        str(row.get("overall_severity_label", "")).lower(),
-                "critical_count":  int(row.get("critical_specialty_count", 0)),
-                "facilities":      int(row.get("total_facilities", 0)),
-                "lat":             float(row.get("lat", 20.5)),
-                "lng":             float(row.get("lng", 78.9)),
-            })
-
-        return JSONResponse(content={
-            "deserts":       deserts,
-            "state_summary": state_summary,
-            "total_critical":sum(1 for d in deserts if d["severity"] == "CRITICAL")
-        })
-
+        payload = _build_desert_payload(state=state, specialty=specialty)
+        # Populate cache on first successful live fetch if still empty
+        if state is None and specialty is None:
+            with _desert_cache_lock:
+                if _desert_cache is None:
+                    _desert_cache = payload
+        return JSONResponse(content=payload)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

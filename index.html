@@ -454,26 +454,34 @@
         <div class="filter-label">Specialty</div>
         <select id="specialtyFilter">
           <option value="">All Specialties</option>
-          <option>Emergency Trauma</option><option>Oncology</option>
-          <option>Dialysis / Nephrology</option><option>Neonatal ICU</option>
-          <option>Cardiology</option><option>Orthopaedics</option>
-          <option>Mental Health</option><option>Obstetrics</option>
+          <option value="emergency trauma">Emergency Trauma</option>
+          <option value="oncology cancer">Oncology</option>
+          <option value="dialysis nephrology">Dialysis / Nephrology</option>
+          <option value="neonatal icu nicu">Neonatal ICU</option>
+          <option value="cardiology cardiac">Cardiology</option>
+          <option value="orthopaedics orthopedics">Orthopaedics</option>
+          <option value="mental health psychiatry">Mental Health</option>
+          <option value="obstetrics maternity gynecology">Obstetrics</option>
+          <option value="ophthalmology eye care">Eye Care</option>
+          <option value="dental dentistry">Dental</option>
         </select>
       </div>
       <div class="filter-group">
         <div class="filter-label">Facility Type</div>
         <select id="typeFilter">
           <option value="">All Types</option>
-          <option>Hospital</option><option>Clinic</option>
-          <option>Diagnostic Centre</option><option>Pharmacy</option>
+          <option value="hospital">Hospital</option>
+          <option value="clinic">Clinic</option>
+          <option value="diagnostic">Diagnostic Centre</option>
+          <option value="pharmacy">Pharmacy</option>
         </select>
       </div>
       <div class="trust-slider-wrap">
         <div class="trust-row">
           <span class="filter-label">Min Trust Score</span>
-          <span id="trustVal" style="color:var(--accent);font-size:12px;font-weight:600">40</span>
+          <span id="trustVal" style="color:var(--accent);font-size:12px;font-weight:600">0</span>
         </div>
-        <input type="range" id="trustSlider" min="0" max="100" value="40"
+        <input type="range" id="trustSlider" min="0" max="100" value="0"
           oninput="document.getElementById('trustVal').textContent=this.value">
       </div>
     </div>
@@ -723,8 +731,20 @@ async function sendMessage() {
   showTyping();
 
   const state     = document.getElementById('stateFilter').value;
-  const minTrust  = document.getElementById('trustSlider').value;
+  const specialty = document.getElementById('specialtyFilter').value;
+  const facType   = document.getElementById('typeFilter').value;
+  const minTrust  = parseInt(document.getElementById('trustSlider').value) || 0;
   animateTrace(null);
+
+  // Augment the query with filter values the LLM parser will extract
+  let augmented = query;
+  if (specialty) {
+    const term = specialty.split(' ')[0]; // e.g. "dialysis" from "dialysis nephrology"
+    if (!augmented.toLowerCase().includes(term)) augmented = term + ' ' + augmented;
+  }
+  if (facType && !augmented.toLowerCase().includes(facType)) {
+    augmented = augmented + ' ' + facType;
+  }
 
   try {
     const BACKEND_URL = window.BACKEND_URL || '';
@@ -732,10 +752,10 @@ async function sendMessage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query:       query,
+        query:       augmented,
         num_results: 10,
         state:       state || null,
-        min_trust:   minTrust ? parseFloat(minTrust) : null,
+        min_trust:   minTrust > 0 ? minTrust : null,
       })
     });
 

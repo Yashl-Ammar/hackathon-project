@@ -499,6 +499,7 @@ def desert_data(state: Optional[str] = None, specialty: Optional[str] = None):
     Served from in-memory cache (populated at startup) for unfiltered requests.
     Falls back to live Spark query for filtered requests or cache misses.
     """
+    global _desert_cache
     if not SPARK_AVAILABLE:
         return JSONResponse(content={"deserts": [], "state_summary": []})
 
